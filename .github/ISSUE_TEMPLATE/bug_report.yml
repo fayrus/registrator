@@ -1,0 +1,89 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill in as much detail as possible.
+
+  - type: input
+    id: registrator_version
+    attributes:
+      label: Registrator version
+      description: Docker image tag or version (e.g. `v8.0.0`, `latest`, `sha-abc1234`)
+    validations:
+      required: true
+
+  - type: input
+    id: docker_version
+    attributes:
+      label: Docker version
+      description: Output of `docker version`
+    validations:
+      required: true
+
+  - type: dropdown
+    id: architecture
+    attributes:
+      label: Architecture
+      options:
+        - amd64
+        - arm64
+        - arm/v7
+        - arm/v6
+        - "386"
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Service registry backend
+      options:
+        - Consul
+        - ConsulKV
+        - etcd
+        - ZooKeeper
+        - SkyDNS2
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Registrator command
+      description: Exact command used to run Registrator
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: container_command
+    attributes:
+      label: Container command
+      description: Exact command used to run the container being registered
+      render: shell
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened? What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant Docker events and Registrator logs
+      render: shell
