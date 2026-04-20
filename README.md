@@ -13,7 +13,9 @@ supports pluggable service registries, which currently includes
 [ZooKeeper](https://zookeeper.apache.org/) and
 [SkyDNS 2](https://github.com/skynetservices/skydns/).
 
-Multi-architecture support: `linux/amd64`, `linux/arm64`, `linux/arm/v7`, `linux/arm/v6`, `linux/386` — built on Go 1.25 and Alpine 3.21.
+Multi-architecture support: `linux/amd64`, `linux/arm64` — built with Chainguard hardened images.
+
+> For `linux/arm/v7`, `linux/arm/v6` and `linux/386` support, use [v8.0.1](https://github.com/fayrus/registrator/releases/tag/v8.0.1).
 
 ## Getting Registrator
 
