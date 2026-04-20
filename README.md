@@ -5,17 +5,15 @@ Service registry bridge for Docker.
 [![Docker pulls](https://img.shields.io/docker/pulls/fayrus/registrator.svg)](https://hub.docker.com/r/fayrus/registrator/)
 [![Docker Image Version](https://img.shields.io/docker/v/fayrus/registrator/latest)](https://hub.docker.com/r/fayrus/registrator/tags)
 [![Build and Push Docker Image](https://github.com/fayrus/registrator/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/fayrus/registrator/actions/workflows/docker-publish.yml)
-<br /><br />
-
-> Fork of [gliderlabs/registrator](https://github.com/gliderlabs/registrator) with multi-architecture support (`linux/amd64`, `linux/arm64`, `linux/arm/v7`, `linux/arm/v6`, `linux/386`) and updated runtime (Go 1.22, Alpine 3.21).
 
 Registrator automatically registers and deregisters services for any Docker
 container by inspecting containers as they come online. Registrator
 supports pluggable service registries, which currently includes
-[Consul](http://www.consul.io/), [etcd](https://github.com/coreos/etcd) and
+[Consul](http://www.consul.io/), [etcd](https://github.com/coreos/etcd),
+[ZooKeeper](https://zookeeper.apache.org/) and
 [SkyDNS 2](https://github.com/skynetservices/skydns/).
 
-Full documentation available at http://gliderlabs.com/registrator
+Multi-architecture support: `linux/amd64`, `linux/arm64`, `linux/arm/v7`, `linux/arm/v6`, `linux/386` — built on Go 1.25 and Alpine 3.21.
 
 ## Getting Registrator
 
@@ -48,6 +46,7 @@ Usage of /bin/registrator:
   -internal=false: Use internal ports instead of published ones
   -ip="": IP for ports mapped to the host
   -resync=0: Frequency with which services are resynchronized
+  -useIpFromLabel="": Use IP stored in the given container label instead of the host IP
   -retry-attempts=0: Max retry attempts to establish a connection with the backend. Use -1 for infinite retries
   -retry-interval=2000: Interval (in millisecond) between retry-attempts.
   -tags="": Append tags for all registered services (supports Go template)
