@@ -21,8 +21,7 @@ Get the latest release via [Docker Hub](https://hub.docker.com/r/fayrus/registra
 
 	$ docker pull fayrus/registrator:latest
 
-Latest tag always points to the latest release. There is also a `:master` tag
-and version tags to pin to specific releases.
+Latest tag always points to the latest release. Version tags are also available to pin to specific releases (e.g. `:v8.0.1`, `:v8.0`, `:v8`).
 
 ## Using Registrator
 
