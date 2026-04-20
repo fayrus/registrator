@@ -3,7 +3,7 @@ module github.com/fayrus/registrator
 go 1.25.9
 
 require (
-	github.com/buger/jsonparser v1.1.1
+	github.com/buger/jsonparser v1.1.2
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/coreos/go-etcd v2.0.0+incompatible
 	github.com/fsouza/go-dockerclient v1.13.1
