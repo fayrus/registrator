@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v8.0.4](https://github.com/fayrus/registrator/releases/tag/v8.0.4) - 2026-04-21
+
+### Fixed
+- `SERVICE_CHECK_SCRIPT` was being passed to Consul as a single argument instead of splitting by spaces, causing the check to always fail
+
+### Changed
+- `check_timeout` and `check_tls_skip_verify` are now applied to all check types (HTTP, HTTPS, TCP, gRPC, script). Previously `check_tls_skip_verify` only worked with gRPC checks and `check_timeout` was duplicated per check type
+
+### Removed
+- Dropped SkyDNS2 backend — the project has been abandoned since 2016 and its Docker image is incompatible with modern container runtimes. [CoreDNS](https://coredns.io/) is its successor and will be evaluated as a replacement in a future release
+
 ## [v8.0.3](https://github.com/fayrus/registrator/releases/tag/v8.0.3) - 2026-04-20
 
 ### Changed
@@ -43,7 +54,8 @@ For history prior to v8.0.0, see the upstream projects:
 - [psyhomb/registrator](https://github.com/psyhomb/registrator)
 - [gliderlabs/registrator](https://github.com/gliderlabs/registrator)
 
-[unreleased]: https://github.com/fayrus/registrator/compare/v8.0.3...HEAD
+[unreleased]: https://github.com/fayrus/registrator/compare/v8.0.4...HEAD
+[v8.0.4]: https://github.com/fayrus/registrator/compare/v8.0.3...v8.0.4
 [v8.0.3]: https://github.com/fayrus/registrator/compare/v8.0.2...v8.0.3
 [v8.0.2]: https://github.com/fayrus/registrator/compare/v8.0.1...v8.0.2
 [v8.0.1]: https://github.com/fayrus/registrator/compare/v8.0.0...v8.0.1

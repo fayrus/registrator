@@ -16,6 +16,8 @@ Multi-architecture support: `linux/amd64`, `linux/arm64` — built with Chaingua
 
 > For `linux/arm/v7`, `linux/arm/v6` and `linux/386` support, use [v8.0.1](https://github.com/fayrus/registrator/releases/tag/v8.0.1).
 
+> **Note:** SkyDNS2 backend was removed in v8.0.4. The project has been abandoned since 2016. [CoreDNS](https://coredns.io/) will be evaluated as a replacement in a future release.
+
 ## Getting Registrator
 
 Get the latest release via [Docker Hub](https://hub.docker.com/r/fayrus/registrator/):
