@@ -12,7 +12,7 @@ Registrator automatically registers and deregisters services for any Docker
 container by inspecting containers as they come online. Registrator
 supports pluggable service registries, which currently includes
 [Consul](http://www.consul.io/), [etcd](https://github.com/coreos/etcd) and
-[SkyDNS 2](https://github.com/skynetservices/skydns/).
+[ZooKeeper](https://zookeeper.apache.org/).
 
 ## Getting Registrator
 

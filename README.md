@@ -9,9 +9,8 @@ Service registry bridge for Docker.
 Registrator automatically registers and deregisters services for any Docker
 container by inspecting containers as they come online. Registrator
 supports pluggable service registries, which currently includes
-[Consul](http://www.consul.io/), [etcd](https://github.com/coreos/etcd),
-[ZooKeeper](https://zookeeper.apache.org/) and
-[SkyDNS 2](https://github.com/skynetservices/skydns/).
+[Consul](http://www.consul.io/), [etcd](https://github.com/coreos/etcd) and
+[ZooKeeper](https://zookeeper.apache.org/).
 
 Multi-architecture support: `linux/amd64`, `linux/arm64` — built with Chainguard hardened images.
 
