@@ -66,6 +66,18 @@ func TestIpFromContainer_UsesContainerIP(t *testing.T) {
 	assert.Equal(t, "172.17.0.5", svc.IP)
 }
 
+func TestExecuteTagTemplate_Static(t *testing.T) {
+	result := executeTagTemplate("web,api", minimalContainer("", ""))
+	assert.Equal(t, "web,api", result)
+}
+
+func TestExecuteTagTemplate_WithContainerField(t *testing.T) {
+	c := minimalContainer("", "")
+	c.Config.Hostname = "myhost"
+	result := executeTagTemplate("host-{{.Config.Hostname}}", c)
+	assert.Equal(t, "host-myhost", result)
+}
+
 func TestIpFromContainer_Disabled_UsesHostIP(t *testing.T) {
 	b := newTestBridge(Config{IpFromContainer: false})
 	port := ServicePort{
