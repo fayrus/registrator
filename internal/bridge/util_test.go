@@ -99,3 +99,34 @@ func TestServiceMetaData_ProtocolSpecific_OverridesGeneric(t *testing.T) {
 	meta, _ := serviceMetaData(cfg, "8080", "tcp")
 	assert.Equal(t, "specific", meta["name"])
 }
+
+func TestPortInRange(t *testing.T) {
+	assert.True(t, portInRange("100-200", "100"))
+	assert.True(t, portInRange("100-200", "150"))
+	assert.True(t, portInRange("100-200", "200"))
+	assert.False(t, portInRange("100-200", "99"))
+	assert.False(t, portInRange("100-200", "201"))
+	assert.False(t, portInRange("100", "100"))
+	assert.False(t, portInRange("abc-def", "100"))
+}
+
+func TestServiceMetaData_PortRange_Match(t *testing.T) {
+	cfg := configWithEnv("SERVICE_10000-20000_IGNORE=true")
+	meta, _ := serviceMetaData(cfg, "15000", "udp")
+	assert.Equal(t, "true", meta["ignore"])
+}
+
+func TestServiceMetaData_PortRange_NoMatch(t *testing.T) {
+	cfg := configWithEnv("SERVICE_10000-20000_IGNORE=true")
+	meta, _ := serviceMetaData(cfg, "9999", "udp")
+	_, exists := meta["ignore"]
+	assert.False(t, exists)
+}
+
+func TestServiceMetaData_PortRange_BoundaryPorts(t *testing.T) {
+	cfg := configWithEnv("SERVICE_10000-20000_NAME=rtp")
+	metaLo, _ := serviceMetaData(cfg, "10000", "udp")
+	metaHi, _ := serviceMetaData(cfg, "20000", "udp")
+	assert.Equal(t, "rtp", metaLo["name"])
+	assert.Equal(t, "rtp", metaHi["name"])
+}

@@ -56,6 +56,20 @@ func combineTags(tagParts ...string) []string {
 
 var knownProtocols = map[string]bool{"tcp": true, "udp": true}
 
+func portInRange(portRange, port string) bool {
+	parts := strings.SplitN(portRange, "-", 2)
+	if len(parts) != 2 {
+		return false
+	}
+	lo, err1 := strconv.Atoi(parts[0])
+	hi, err2 := strconv.Atoi(parts[1])
+	p, err3 := strconv.Atoi(port)
+	if err1 != nil || err2 != nil || err3 != nil {
+		return false
+	}
+	return p >= lo && p <= hi
+}
+
 func serviceMetaData(config *dockerapi.Config, port, portType string) (map[string]string, map[string]bool) {
 	meta := config.Env
 	for k, v := range config.Labels {
@@ -72,8 +86,14 @@ func serviceMetaData(config *dockerapi.Config, port, portType string) (map[strin
 			}
 			portkey := strings.SplitN(key, "_", 2)
 			_, err := strconv.Atoi(portkey[0])
-			if err == nil && len(portkey) > 1 {
-				if portkey[0] != port {
+			isExactPort := err == nil
+			isRangePort := !isExactPort && strings.Contains(portkey[0], "-") && portInRange(portkey[0], port)
+
+			if (isExactPort || isRangePort) && len(portkey) > 1 {
+				if isExactPort && portkey[0] != port {
+					continue
+				}
+				if isRangePort && !portInRange(portkey[0], port) {
 					continue
 				}
 				// Check for SERVICE_<port>_<protocol>_<key> format
@@ -88,7 +108,7 @@ func serviceMetaData(config *dockerapi.Config, port, portType string) (map[strin
 					metadata[portkey[1]] = kvp[1]
 					metadataFromPort[portkey[1]] = true
 				}
-			} else {
+			} else if !isExactPort && !isRangePort {
 				metadata[key] = kvp[1]
 			}
 		}
