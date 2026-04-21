@@ -305,6 +305,10 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	}
 	service.Port = p
 
+	if b.config.IpFromContainer {
+		service.IP = port.ExposedIP
+	}
+
 	if b.config.UseIpFromLabel != "" {
 		containerIp := container.Config.Labels[b.config.UseIpFromLabel]
 		if containerIp != "" {
