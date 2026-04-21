@@ -11,7 +11,7 @@ import (
 	"time"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
-	"github.com/fayrus/registrator/bridge"
+	"github.com/fayrus/registrator/internal/bridge"
 )
 
 var Version string

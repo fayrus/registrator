@@ -1,8 +1,8 @@
 package main
 
 import (
-	_ "github.com/fayrus/registrator/consul"
-	_ "github.com/fayrus/registrator/consulkv"
-	_ "github.com/fayrus/registrator/etcd"
-	_ "github.com/fayrus/registrator/zookeeper"
+	_ "github.com/fayrus/registrator/backends/consul"
+	_ "github.com/fayrus/registrator/backends/consulkv"
+	_ "github.com/fayrus/registrator/backends/etcd"
+	_ "github.com/fayrus/registrator/backends/zookeeper"
 )
