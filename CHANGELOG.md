@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.0.0](https://github.com/fayrus/registrator/releases/tag/v9.0.0) - 2026-04-22
+
+### Added
+- `SERVICE_ENABLE_TAG_OVERRIDE=true` label support for Consul — allows external agents to update service tags without registrator overwriting them
+- `-ip-from-container` flag — uses the container's internal IP instead of the host IP for service registration, avoiding duplicate registrations with Traefik and similar systems (inspired by @colcek in gliderlabs/registrator#703)
+- `SERVICE_<port>_<protocol>_<key>` encoding support — allows differentiating metadata between the same port on different protocols (e.g. `SERVICE_8080_tcp_NAME=web`) (inspired by @pmundt in gliderlabs/registrator#668)
+- Port range support in `SERVICE_` variables — `SERVICE_10000-20000_IGNORE=true` applies to all ports in the range, useful for containers exposing many UDP ports (e.g. VoIP/RTP) (inspired by @afr1983 in gliderlabs/registrator#383)
+- Go template support in `SERVICE_TAGS` per container — e.g. `SERVICE_TAGS=host-{{.Config.Hostname}},web` (same template functions as the global `-tags` flag) (inspired by @alinoeabrassart in gliderlabs/registrator#503 and @psyhomb in gliderlabs/registrator#677)
+- New `etcd2://` backend using the official etcd v3 client (`go.etcd.io/etcd/client/v3`) — supports multiple endpoints via `ETCD_ENDPOINTS` env var and TLS via `ETCD_CERT_FILE`, `ETCD_KEY_FILE`, `ETCD_CA_CERT_FILE`. The existing `etcd://` backend is unchanged (inspired by @woshihaoren in gliderlabs/registrator#649)
+- New `coredns://` backend — writes service records to etcd in SkyDNS format so CoreDNS can resolve them via its `etcd` plugin. Usage: `coredns://etcd-host:2379/skydns?zone=service.local`
+
+### Changed
+- Restructured project layout: bridge package moved to `internal/bridge/`, registry backends moved to `backends/` (`consul`, `consulkv`, `etcd`, `zookeeper`)
+- Updated all dependencies to latest versions
+
+---
+
 ## [v8.0.4](https://github.com/fayrus/registrator/releases/tag/v8.0.4) - 2026-04-21
 
 ### Fixed
@@ -54,7 +71,8 @@ For history prior to v8.0.0, see the upstream projects:
 - [psyhomb/registrator](https://github.com/psyhomb/registrator)
 - [gliderlabs/registrator](https://github.com/gliderlabs/registrator)
 
-[unreleased]: https://github.com/fayrus/registrator/compare/v8.0.4...HEAD
+[unreleased]: https://github.com/fayrus/registrator/compare/v9.0.0...HEAD
+[v9.0.0]: https://github.com/fayrus/registrator/compare/v8.0.4...v9.0.0
 [v8.0.4]: https://github.com/fayrus/registrator/compare/v8.0.3...v8.0.4
 [v8.0.3]: https://github.com/fayrus/registrator/compare/v8.0.2...v8.0.3
 [v8.0.2]: https://github.com/fayrus/registrator/compare/v8.0.1...v8.0.2
