@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	etcd2 "github.com/coreos/go-etcd/etcd"
-	"github.com/fayrus/registrator/bridge"
+	"github.com/fayrus/registrator/internal/bridge"
 	etcd "gopkg.in/coreos/go-etcd.v0/etcd"
 )
 

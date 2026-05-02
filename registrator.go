@@ -11,7 +11,7 @@ import (
 	"time"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
-	"github.com/fayrus/registrator/bridge"
+	"github.com/fayrus/registrator/internal/bridge"
 )
 
 var Version string
@@ -20,6 +20,7 @@ var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
 var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
 var explicit = flag.Bool("explicit", false, "Only register containers which have SERVICE_NAME label set")
 var useIpFromLabel = flag.String("useIpFromLabel", "", "Use IP which is stored in a label assigned to the container")
+var ipFromContainer = flag.Bool("ip-from-container", false, "Use container IP instead of host IP for service registration")
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
 var forceTags = flag.String("tags", "", "Append tags for all registered services (supports Go template)")
@@ -104,6 +105,7 @@ func main() {
 		Internal:        *internal,
 		Explicit:        *explicit,
 		UseIpFromLabel:  *useIpFromLabel,
+		IpFromContainer: *ipFromContainer,
 		ForceTags:       *forceTags,
 		RefreshTtl:      *refreshTtl,
 		RefreshInterval: *refreshInterval,

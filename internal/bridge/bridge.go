@@ -272,7 +272,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		port.HostIP = b.config.HostIp
 	}
 
-	metadata, metadataFromPort := serviceMetaData(container.Config, port.ExposedPort)
+	metadata, metadataFromPort := serviceMetaData(container.Config, port.ExposedPort, port.PortType)
 
 	ignore := mapDefault(metadata, "ignore", "")
 	if ignore != "" {
@@ -304,6 +304,10 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		p, _ = strconv.Atoi(port.HostPort)
 	}
 	service.Port = p
+
+	if b.config.IpFromContainer {
+		service.IP = port.ExposedIP
+	}
 
 	if b.config.UseIpFromLabel != "" {
 		containerIp := container.Config.Labels[b.config.UseIpFromLabel]
@@ -342,8 +346,40 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	// https://github.com/fsouza/go-dockerclient/blob/master/container.go#L441-L483
 	ForceTags := b.config.ForceTags
 	if len(ForceTags) != 0 {
-		// Template functions
-		fm := template.FuncMap{
+		ForceTags = executeTagTemplate(ForceTags, container)
+	}
+
+	serviceTags := mapDefault(metadata, "tags", "")
+	if len(serviceTags) != 0 {
+		serviceTags = executeTagTemplate(serviceTags, container)
+		metadata["tags"] = serviceTags
+	}
+
+	if port.PortType == "udp" {
+		service.Tags = combineTags(
+			mapDefault(metadata, "tags", ""), ForceTags, "udp")
+		service.ID = service.ID + ":udp"
+	} else {
+		service.Tags = combineTags(
+			mapDefault(metadata, "tags", ""), ForceTags)
+	}
+
+	id := mapDefault(metadata, "id", "")
+	if id != "" {
+		service.ID = id
+	}
+
+	delete(metadata, "id")
+	delete(metadata, "tags")
+	delete(metadata, "name")
+	service.Attrs = metadata
+	service.TTL = b.config.RefreshTtl
+
+	return service
+}
+
+func executeTagTemplate(tmplStr string, container *dockerapi.Container) string {
+	fm := template.FuncMap{
 			// Template function name: strSlice
 			// Description: Slice string from start to end (same as s[start:end] where s represents string).
 			//
@@ -639,41 +675,18 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 			},
 		}
 
-		tmpl, err := template.New("tags").Funcs(fm).Parse(ForceTags)
+		tmpl, err := template.New("tags").Funcs(fm).Parse(tmplStr)
 		if err != nil {
-			log.Fatalf("%s template parsing failed with error: %s", ForceTags, err)
+			log.Fatalf("%s template parsing failed with error: %s", tmplStr, err)
 		}
 
-		var b bytes.Buffer
-		err = tmpl.Execute(&b, container)
+		var buf bytes.Buffer
+		err = tmpl.Execute(&buf, container)
 		if err != nil {
-			log.Fatalf("%s template execution failed with error: %s", ForceTags, err)
+			log.Fatalf("%s template execution failed with error: %s", tmplStr, err)
 		}
 
-		ForceTags = b.String()
-	}
-
-	if port.PortType == "udp" {
-		service.Tags = combineTags(
-			mapDefault(metadata, "tags", ""), ForceTags, "udp")
-		service.ID = service.ID + ":udp"
-	} else {
-		service.Tags = combineTags(
-			mapDefault(metadata, "tags", ""), ForceTags)
-	}
-
-	id := mapDefault(metadata, "id", "")
-	if id != "" {
-		service.ID = id
-	}
-
-	delete(metadata, "id")
-	delete(metadata, "tags")
-	delete(metadata, "name")
-	service.Attrs = metadata
-	service.TTL = b.config.RefreshTtl
-
-	return service
+		return buf.String()
 }
 
 func (b *Bridge) remove(containerId string, deregister bool) {

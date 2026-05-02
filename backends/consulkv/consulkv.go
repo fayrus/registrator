@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fayrus/registrator/bridge"
+	"github.com/fayrus/registrator/internal/bridge"
 	consulapi "github.com/hashicorp/consul/api"
 )
 

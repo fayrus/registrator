@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fayrus/registrator/bridge"
+	"github.com/fayrus/registrator/internal/bridge"
 	consulapi "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-cleanhttp"
 )
@@ -86,6 +86,9 @@ func (r *ConsulAdapter) Register(service *bridge.Service) error {
 	registration.Address = service.IP
 	registration.Check = r.buildCheck(service)
 	registration.Meta = service.Attrs
+	if service.Attrs["enable_tag_override"] == "true" {
+		registration.EnableTagOverride = true
+	}
 	return r.client.Agent().ServiceRegister(registration)
 }
 

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/fayrus/registrator/bridge"
+	"github.com/fayrus/registrator/internal/bridge"
 	"github.com/samuel/go-zookeeper/zk"
 )
 
