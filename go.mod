@@ -1,6 +1,6 @@
 module github.com/fayrus/registrator
 
-go 1.25.9
+go 1.26.3
 
 require (
 	github.com/buger/jsonparser v1.1.2
