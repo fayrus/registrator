@@ -3,6 +3,8 @@ name: Build and Push Docker Image
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - ".github/**"
   pull_request:
     branches: [main]
 
@@ -23,7 +25,7 @@ jobs:
         run: go test ./...
 
   build:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -87,7 +89,17 @@ jobs:
             git push origin "$VERSION"
           fi
 
+      - name: Check if README changed
+        id: readme
+        run: |
+          if git diff --name-only HEAD~1 HEAD | grep -q "^README.md$"; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Update Docker Hub description
+        if: steps.readme.outputs.changed == 'true'
         uses: peter-evans/dockerhub-description@v5
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
