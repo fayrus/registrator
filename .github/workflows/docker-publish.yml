@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths-ignore:
       - ".github/**"
+      - "docs/**"
+      - "mkdocs.yml"
+      - "*.md"
 
 jobs:
   build:
