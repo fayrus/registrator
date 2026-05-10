@@ -3,6 +3,11 @@ name: Test
 on:
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "README.md"
+      - "*.md"
 
 jobs:
   test:
