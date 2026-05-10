@@ -2,12 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [v8.0.5](https://github.com/fayrus/registrator/releases/tag/v8.0.5) - 2026-05-10
+## [v8.0.6](https://github.com/fayrus/registrator/releases/tag/v8.0.6) - 2026-05-10
 
 ### Security
-- Rebuilt against updated Chainguard base image to address CVEs in `golang/stdlib` 1.26.2
+- Pinned Chainguard builder to `cgr.dev/chainguard/go:1.26.3` to address CVEs in `golang/stdlib` 1.26.2
 
 ### Changed
+- Updated `go.mod` to Go 1.26.3 to match the builder image toolchain
 - Updated GitHub Actions to Node.js 24 compatible versions
 - CI restructured: tests run on pull requests, build and push on merge to `release/v8`
 
@@ -63,8 +64,8 @@ For history prior to v8.0.0, see the upstream projects:
 - [psyhomb/registrator](https://github.com/psyhomb/registrator)
 - [gliderlabs/registrator](https://github.com/gliderlabs/registrator)
 
-[unreleased]: https://github.com/fayrus/registrator/compare/v8.0.5...HEAD
-[v8.0.5]: https://github.com/fayrus/registrator/compare/v8.0.4...v8.0.5
+[unreleased]: https://github.com/fayrus/registrator/compare/v8.0.6...HEAD
+[v8.0.6]: https://github.com/fayrus/registrator/compare/v8.0.4...v8.0.6
 [v8.0.4]: https://github.com/fayrus/registrator/compare/v8.0.3...v8.0.4
 [v8.0.3]: https://github.com/fayrus/registrator/compare/v8.0.2...v8.0.3
 [v8.0.2]: https://github.com/fayrus/registrator/compare/v8.0.1...v8.0.2
