@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM cgr.dev/chainguard/go:latest AS builder
+FROM --platform=$BUILDPLATFORM cgr.dev/chainguard/go:1.26.3 AS builder
 ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETVARIANT
