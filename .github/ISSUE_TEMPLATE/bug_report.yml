@@ -88,7 +88,9 @@ body:
     id: impact
     attributes:
       label: Impact
-      description: Describe the operational or user impact. For example: process crash, stale registrations, missed deregistration, broken health checks.
+      description: |
+        Describe the operational or user impact.
+        Examples: process crash, stale registrations, missed deregistration, broken health checks.
 
   - type: textarea
     id: logs
