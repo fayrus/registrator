@@ -1,0 +1,32 @@
+site_name: Registrator
+site_description: Service registry bridge for Docker
+site_url: https://registrator.fayr.us
+repo_url: https://github.com/fayrus/registrator
+repo_name: fayrus/registrator
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: blue
+    accent: cyan
+  features:
+    - navigation.instant
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Configuration: configuration.md
+  - Backends:
+    - Consul: backends/consul.md
+    - etcd: backends/etcd.md
+    - CoreDNS: backends/coredns.md
+    - ZooKeeper: backends/zookeeper.md
+  - Changelog: changelog.md
