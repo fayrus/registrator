@@ -9,6 +9,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - Updated `go.mod` to Go 1.26.3 to match the builder image toolchain
+
+## [v8.0.5](https://github.com/fayrus/registrator/releases/tag/v8.0.5) - 2026-05-10
+
+### Changed
 - Updated GitHub Actions to Node.js 24 compatible versions
 - CI restructured: tests run on pull requests, build and push on merge to `release/v8`
 
@@ -65,7 +69,8 @@ For history prior to v8.0.0, see the upstream projects:
 - [gliderlabs/registrator](https://github.com/gliderlabs/registrator)
 
 [unreleased]: https://github.com/fayrus/registrator/compare/v8.0.6...HEAD
-[v8.0.6]: https://github.com/fayrus/registrator/compare/v8.0.4...v8.0.6
+[v8.0.6]: https://github.com/fayrus/registrator/compare/v8.0.5...v8.0.6
+[v8.0.5]: https://github.com/fayrus/registrator/compare/v8.0.4...v8.0.5
 [v8.0.4]: https://github.com/fayrus/registrator/compare/v8.0.3...v8.0.4
 [v8.0.3]: https://github.com/fayrus/registrator/compare/v8.0.2...v8.0.3
 [v8.0.2]: https://github.com/fayrus/registrator/compare/v8.0.1...v8.0.2
