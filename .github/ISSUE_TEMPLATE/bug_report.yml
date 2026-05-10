@@ -44,9 +44,11 @@ body:
       options:
         - Consul
         - ConsulKV
+        - CoreDNS
         - etcd
+        - etcd2
         - ZooKeeper
-        - SkyDNS2
+        - Multiple / unsure
     validations:
       required: true
 
@@ -70,7 +72,7 @@ body:
     id: description
     attributes:
       label: Description
-      description: What happened? What did you expect to happen?
+      description: Describe the current behavior and the expected behavior.
     validations:
       required: true
 
@@ -78,8 +80,15 @@ body:
     id: steps
     attributes:
       label: Steps to reproduce
+      description: List the smallest set of steps needed to reproduce the issue.
     validations:
       required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Describe the operational or user impact. For example: process crash, stale registrations, missed deregistration, broken health checks.
 
   - type: textarea
     id: logs
