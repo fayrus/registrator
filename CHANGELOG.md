@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.0.1](https://github.com/fayrus/registrator/releases/tag/v9.0.1) - 2026-05-10
+
+### Security
+- Pinned builder to `cgr.dev/chainguard/go:1.26.3` to address CVEs in `golang/stdlib` 1.26.2
+
+### Changed
+- Updated `go.mod` to Go 1.26.3 to align CI and Docker build toolchain
+- CI restructured: tests run on pull requests, build and push on merge to `main`
+
 ## [v9.0.0](https://github.com/fayrus/registrator/releases/tag/v9.0.0) - 2026-04-22
 
 ### Added
@@ -71,7 +80,8 @@ For history prior to v8.0.0, see the upstream projects:
 - [psyhomb/registrator](https://github.com/psyhomb/registrator)
 - [gliderlabs/registrator](https://github.com/gliderlabs/registrator)
 
-[unreleased]: https://github.com/fayrus/registrator/compare/v9.0.0...HEAD
+[unreleased]: https://github.com/fayrus/registrator/compare/v9.0.1...HEAD
+[v9.0.1]: https://github.com/fayrus/registrator/compare/v9.0.0...v9.0.1
 [v9.0.0]: https://github.com/fayrus/registrator/compare/v8.0.4...v9.0.0
 [v8.0.4]: https://github.com/fayrus/registrator/compare/v8.0.3...v8.0.4
 [v8.0.3]: https://github.com/fayrus/registrator/compare/v8.0.2...v8.0.3
