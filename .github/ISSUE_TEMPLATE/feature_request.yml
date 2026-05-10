@@ -19,10 +19,24 @@ body:
       required: true
 
   - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Why is this worth doing? Describe operational, maintenance, or user-facing impact.
+    validations:
+      required: true
+
+  - type: textarea
     id: alternatives
     attributes:
       label: Alternatives considered
       description: Any workarounds or alternative solutions you've tried
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: Define the concrete conditions that should be true when this request is complete.
 
   - type: dropdown
     id: backend
@@ -32,6 +46,26 @@ body:
         - N/A
         - Consul
         - ConsulKV
+        - CoreDNS
         - etcd
+        - etcd2
         - ZooKeeper
-        - SkyDNS2
+        - Multiple
+
+  - type: dropdown
+    id: change_type
+    attributes:
+      label: Change type
+      options:
+        - Feature
+        - Improvement
+        - Refactor
+        - Documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks or compatibility notes
+      description: Mention any rollout risks, compatibility concerns, or migration needs.
