@@ -17,10 +17,10 @@ func init() {
 
 type Factory struct{}
 
-func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
+func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
 	c, _, err := zk.Connect([]string{uri.Host}, (time.Second * 10))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	exists, _, err := c.Exists(uri.Path)
 	if err != nil {
@@ -29,7 +29,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	if !exists {
 		c.Create(uri.Path, []byte{}, 0, zk.WorldACL(zk.PermAll))
 	}
-	return &ZkAdapter{client: c, path: uri.Path}
+	return &ZkAdapter{client: c, path: uri.Path}, nil
 }
 
 type ZkAdapter struct {

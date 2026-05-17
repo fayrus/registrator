@@ -4,9 +4,8 @@ import "net/url"
 
 type fakeFactory struct{}
 
-func (f *fakeFactory) New(uri *url.URL) RegistryAdapter {
-
-	return &fakeAdapter{}
+func (f *fakeFactory) New(uri *url.URL) (RegistryAdapter, error) {
+	return &fakeAdapter{}, nil
 }
 
 type fakeAdapter struct{}

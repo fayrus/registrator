@@ -1,6 +1,7 @@
 package etcd
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -20,7 +21,7 @@ func init() {
 
 type Factory struct{}
 
-func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
+func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
 	urls := make([]string, 0)
 	if uri.Host != "" {
 		urls = append(urls, "http://"+uri.Host)
@@ -30,7 +31,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 
 	res, err := http.Get(urls[0] + "/version")
 	if err != nil {
-		log.Fatal("etcd: error retrieving version", err)
+		return nil, fmt.Errorf("etcd: error retrieving version: %w", err)
 	}
 
 	defer res.Body.Close()
@@ -38,10 +39,10 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 
 	if match, _ := regexp.Match("0\\.4\\.*", body); match == true {
 		log.Println("etcd: using v0 client")
-		return &EtcdAdapter{client: etcd.NewClient(urls), path: uri.Path}
+		return &EtcdAdapter{client: etcd.NewClient(urls), path: uri.Path}, nil
 	}
 
-	return &EtcdAdapter{client2: etcd2.NewClient(urls), path: uri.Path}
+	return &EtcdAdapter{client2: etcd2.NewClient(urls), path: uri.Path}, nil
 }
 
 type EtcdAdapter struct {

@@ -1,6 +1,7 @@
 package consul
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"net/url"
@@ -19,7 +20,7 @@ func init() {
 
 type Factory struct{}
 
-func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
+func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
 	config := consulapi.DefaultConfig()
 	path := uri.Path
 	if uri.Scheme == "consulkv-unix" {
@@ -30,9 +31,9 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	}
 	client, err := consulapi.NewClient(config)
 	if err != nil {
-		log.Fatal("consulkv: ", uri.Scheme)
+		return nil, fmt.Errorf("consulkv: failed to create client: %w", err)
 	}
-	return &ConsulKVAdapter{client: client, path: path}
+	return &ConsulKVAdapter{client: client, path: path}, nil
 }
 
 type ConsulKVAdapter struct {

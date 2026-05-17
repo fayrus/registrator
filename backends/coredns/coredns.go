@@ -22,7 +22,7 @@ func init() {
 
 type Factory struct{}
 
-func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
+func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
 	endpoints := []string{}
 	if uri.Host != "" {
 		endpoints = append(endpoints, uri.Host)
@@ -61,13 +61,13 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	if certFile != "" && keyFile != "" {
 		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 		if err != nil {
-			log.Fatal("coredns: failed to load TLS keypair:", err)
+			return nil, fmt.Errorf("coredns: failed to load TLS keypair: %w", err)
 		}
 		tlsCfg := &tls.Config{Certificates: []tls.Certificate{cert}}
 		if caFile != "" {
 			ca, err := os.ReadFile(caFile)
 			if err != nil {
-				log.Fatal("coredns: failed to read CA cert:", err)
+				return nil, fmt.Errorf("coredns: failed to read CA cert: %w", err)
 			}
 			pool := x509.NewCertPool()
 			pool.AppendCertsFromPEM(ca)
@@ -78,11 +78,11 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 
 	client, err := clientv3.New(cfg)
 	if err != nil {
-		log.Fatal("coredns: failed to connect to etcd:", err)
+		return nil, fmt.Errorf("coredns: failed to connect to etcd: %w", err)
 	}
 
 	log.Printf("coredns: using zone=%s prefix=%s endpoints=%v", zone, prefix, endpoints)
-	return &CoreDNSAdapter{client: client, prefix: prefix, zone: zone}
+	return &CoreDNSAdapter{client: client, prefix: prefix, zone: zone}, nil
 }
 
 type CoreDNSAdapter struct {

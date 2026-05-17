@@ -43,6 +43,29 @@ func assert(err error) {
 	}
 }
 
+func connectWithRetry(docker *dockerapi.Client, adapterURI string, config bridge.Config, retryAttempts int, retryInterval time.Duration) (*bridge.Bridge, error) {
+	attempt := 0
+	for retryAttempts == -1 || attempt <= retryAttempts {
+		log.Printf("Connecting to backend (%v/%v)", attempt, retryAttempts)
+
+		b, err := bridge.New(docker, adapterURI, config)
+		if err == nil {
+			err = b.Ping()
+		}
+		if err == nil {
+			return b, nil
+		}
+		if retryAttempts != -1 && attempt == retryAttempts {
+			return nil, err
+		}
+
+		time.Sleep(retryInterval)
+		attempt++
+	}
+
+	return nil, errors.New("unreachable retry state")
+}
+
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == "--version" {
 		fmt.Println(Version)
@@ -100,7 +123,7 @@ func main() {
 		assert(errors.New("-deregister must be \"always\" or \"on-success\""))
 	}
 
-	b, err := bridge.New(docker, flag.Arg(0), bridge.Config{
+	b, err := connectWithRetry(docker, flag.Arg(0), bridge.Config{
 		HostIp:          *hostIp,
 		Internal:        *internal,
 		Explicit:        *explicit,
@@ -111,26 +134,8 @@ func main() {
 		RefreshInterval: *refreshInterval,
 		DeregisterCheck: *deregister,
 		Cleanup:         *cleanup,
-	})
-
+	}, *retryAttempts, time.Duration(*retryInterval)*time.Millisecond)
 	assert(err)
-
-	attempt := 0
-	for *retryAttempts == -1 || attempt <= *retryAttempts {
-		log.Printf("Connecting to backend (%v/%v)", attempt, *retryAttempts)
-
-		err = b.Ping()
-		if err == nil {
-			break
-		}
-
-		if err != nil && attempt == *retryAttempts {
-			assert(err)
-		}
-
-		time.Sleep(time.Duration(*retryInterval) * time.Millisecond)
-		attempt++
-	}
 
 	// Start event listener before listing containers to avoid missing anything
 	events := make(chan *dockerapi.APIEvents)
