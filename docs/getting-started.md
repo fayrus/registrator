@@ -13,7 +13,7 @@ Version tags are available to pin to a specific release:
 | Tag | Description |
 |-----|-------------|
 | `latest` | Latest stable release |
-| `v9.0.1` | Specific patch version |
+| `v9.0.2` | Specific patch version |
 | `v9.0` | Latest patch in minor series |
 | `v9` | Latest patch in major series |
 

@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.0.2](https://github.com/fayrus/registrator/releases/tag/v9.0.2) - 2026-05-17
+
+### Fixed
+- Backend constructors no longer call `log.Fatal` or `panic` on initialization errors — errors are now propagated and retried via `-retry-attempts` and `-retry-interval`
+
+### Changed
+- `AdapterFactory.New` now returns `(RegistryAdapter, error)` to allow callers to handle initialization failures gracefully
+- Introduced `connectWithRetry` in main, wrapping both backend construction and `Ping` in the retry loop
+
 ## [v9.0.1](https://github.com/fayrus/registrator/releases/tag/v9.0.1) - 2026-05-10
 
 ### Security
