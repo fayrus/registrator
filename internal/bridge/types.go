@@ -8,7 +8,7 @@ import (
 )
 
 type AdapterFactory interface {
-	New(uri *url.URL) RegistryAdapter
+	New(uri *url.URL) (RegistryAdapter, error)
 }
 
 type RegistryAdapter interface {

@@ -43,10 +43,14 @@ func New(docker *dockerapi.Client, adapterUri string, config Config) (*Bridge, e
 	}
 
 	log.Println("Using", uri.Scheme, "adapter:", uri)
+	registry, err := factory.New(uri)
+	if err != nil {
+		return nil, err
+	}
 	return &Bridge{
 		docker:         docker,
 		config:         config,
-		registry:       factory.New(uri),
+		registry:       registry,
 		services:       make(map[string][]*Service),
 		deadContainers: make(map[string]*DeadContainer),
 	}, nil

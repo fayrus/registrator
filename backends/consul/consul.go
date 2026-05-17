@@ -30,7 +30,7 @@ func (r *ConsulAdapter) interpolateService(script string, service *bridge.Servic
 
 type Factory struct{}
 
-func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
+func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
 	config := consulapi.DefaultConfig()
 	if uri.Scheme == "consul-unix" {
 		config.Address = strings.TrimPrefix(uri.String(), "consul-")
@@ -44,7 +44,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 		}
 		tlsConfig, err := consulapi.SetupTLSConfig(tlsConfigDesc)
 		if err != nil {
-			log.Fatal("Cannot set up Consul TLSConfig", err)
+			return nil, fmt.Errorf("consul: failed to set up TLS config: %w", err)
 		}
 		config.Scheme = "https"
 		transport := cleanhttp.DefaultPooledTransport()
@@ -56,9 +56,9 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	}
 	client, err := consulapi.NewClient(config)
 	if err != nil {
-		log.Fatal("consul: ", uri.Scheme)
+		return nil, fmt.Errorf("consul: failed to create client: %w", err)
 	}
-	return &ConsulAdapter{client: client}
+	return &ConsulAdapter{client: client}, nil
 }
 
 type ConsulAdapter struct {
