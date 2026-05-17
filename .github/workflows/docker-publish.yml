@@ -8,6 +8,7 @@ on:
       - "docs/**"
       - "mkdocs.yml"
       - "*.md"
+  workflow_dispatch:
 
 jobs:
   build:
