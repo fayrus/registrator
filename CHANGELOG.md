@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.0.3](https://github.com/fayrus/registrator/releases/tag/v9.0.3) - 2026-05-24
+
+### Fixed
+- Invalid tag templates in `SERVICE_TAGS` or the global `-tags` flag no longer terminate the process. Registrator now logs the template error and skips only the affected service registration.
+
+### Changed
+- Tag template evaluation now returns errors to the bridge layer instead of calling `log.Fatal`, so malformed container metadata is handled as a per-service failure.
+
 ## [v9.0.2](https://github.com/fayrus/registrator/releases/tag/v9.0.2) - 2026-05-17
 
 ### Fixed
@@ -89,7 +97,9 @@ For history prior to v8.0.0, see the upstream projects:
 - [psyhomb/registrator](https://github.com/psyhomb/registrator)
 - [gliderlabs/registrator](https://github.com/gliderlabs/registrator)
 
-[unreleased]: https://github.com/fayrus/registrator/compare/v9.0.1...HEAD
+[unreleased]: https://github.com/fayrus/registrator/compare/v9.0.3...HEAD
+[v9.0.3]: https://github.com/fayrus/registrator/compare/v9.0.2...v9.0.3
+[v9.0.2]: https://github.com/fayrus/registrator/compare/v9.0.1...v9.0.2
 [v9.0.1]: https://github.com/fayrus/registrator/compare/v9.0.0...v9.0.1
 [v9.0.0]: https://github.com/fayrus/registrator/compare/v8.0.4...v9.0.0
 [v8.0.4]: https://github.com/fayrus/registrator/compare/v8.0.3...v8.0.4
