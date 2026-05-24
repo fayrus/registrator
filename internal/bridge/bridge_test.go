@@ -61,21 +61,29 @@ func TestIpFromContainer_UsesContainerIP(t *testing.T) {
 		ContainerID: "abcdef1234567890",
 		container:   minimalContainer("192.168.1.10", "172.17.0.5"),
 	}
-	svc := b.newService(port, false)
+	svc, err := b.newService(port, false)
+	assert.NoError(t, err)
 	assert.NotNil(t, svc)
 	assert.Equal(t, "172.17.0.5", svc.IP)
 }
 
 func TestExecuteTagTemplate_Static(t *testing.T) {
-	result := executeTagTemplate("web,api", minimalContainer("", ""))
+	result, err := executeTagTemplate("web,api", minimalContainer("", ""))
+	assert.NoError(t, err)
 	assert.Equal(t, "web,api", result)
 }
 
 func TestExecuteTagTemplate_WithContainerField(t *testing.T) {
 	c := minimalContainer("", "")
 	c.Config.Hostname = "myhost"
-	result := executeTagTemplate("host-{{.Config.Hostname}}", c)
+	result, err := executeTagTemplate("host-{{.Config.Hostname}}", c)
+	assert.NoError(t, err)
 	assert.Equal(t, "host-myhost", result)
+}
+
+func TestExecuteTagTemplate_InvalidTemplate(t *testing.T) {
+	_, err := executeTagTemplate("host-{{.Config.Hostname", minimalContainer("", ""))
+	assert.Error(t, err)
 }
 
 func TestIpFromContainer_Disabled_UsesHostIP(t *testing.T) {
@@ -89,7 +97,46 @@ func TestIpFromContainer_Disabled_UsesHostIP(t *testing.T) {
 		ContainerID: "abcdef1234567890",
 		container:   minimalContainer("192.168.1.10", "172.17.0.5"),
 	}
-	svc := b.newService(port, false)
+	svc, err := b.newService(port, false)
+	assert.NoError(t, err)
 	assert.NotNil(t, svc)
 	assert.Equal(t, "192.168.1.10", svc.IP)
+}
+
+func TestNewService_InvalidPortTagsOnlyFailAffectedService(t *testing.T) {
+	b := newTestBridge(Config{})
+	container := minimalContainer("192.168.1.10", "172.17.0.5")
+	container.Config.Env = []string{
+		"SERVICE_NAME=test-svc",
+		"SERVICE_8080_TAGS=broken-{{.Config.Hostname",
+		"SERVICE_9090_TAGS=ok",
+	}
+
+	invalidPort := ServicePort{
+		HostIP:      "192.168.1.10",
+		HostPort:    "32000",
+		ExposedIP:   "172.17.0.5",
+		ExposedPort: "8080",
+		PortType:    "tcp",
+		ContainerID: "abcdef1234567890",
+		container:   container,
+	}
+	validPort := ServicePort{
+		HostIP:      "192.168.1.10",
+		HostPort:    "32001",
+		ExposedIP:   "172.17.0.5",
+		ExposedPort: "9090",
+		PortType:    "tcp",
+		ContainerID: "abcdef1234567890",
+		container:   container,
+	}
+
+	invalidService, invalidErr := b.newService(invalidPort, true)
+	validService, validErr := b.newService(validPort, true)
+
+	assert.Nil(t, invalidService)
+	assert.Error(t, invalidErr)
+	assert.NoError(t, validErr)
+	assert.NotNil(t, validService)
+	assert.Equal(t, []string{"ok"}, validService.Tags)
 }

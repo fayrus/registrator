@@ -3,6 +3,7 @@ package bridge
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -239,14 +240,18 @@ func (b *Bridge) add(containerId string, quiet bool) {
 
 	isGroup := len(servicePorts) > 1
 	for _, port := range servicePorts {
-		service := b.newService(port, isGroup)
+		service, err := b.newService(port, isGroup)
+		if err != nil {
+			log.Println("ignored:", container.ID[:12], "service on port", port.ExposedPort, err)
+			continue
+		}
 		if service == nil {
 			if !quiet {
 				log.Println("ignored:", container.ID[:12], "service on port", port.ExposedPort)
 			}
 			continue
 		}
-		err := b.registry.Register(service)
+		err = b.registry.Register(service)
 		if err != nil {
 			log.Println("register failed:", service, err)
 			continue
@@ -256,9 +261,10 @@ func (b *Bridge) add(containerId string, quiet bool) {
 	}
 }
 
-func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
+func (b *Bridge) newService(port ServicePort, isgroup bool) (*Service, error) {
 	container := port.container
 	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
+	var err error
 
 	// not sure about this logic. kind of want to remove it.
 	hostname := Hostname
@@ -280,13 +286,13 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 
 	ignore := mapDefault(metadata, "ignore", "")
 	if ignore != "" {
-		return nil
+		return nil, nil
 	}
 
 	serviceName := mapDefault(metadata, "name", "")
 	if serviceName == "" {
 		if b.config.Explicit {
-			return nil
+			return nil, nil
 		}
 		serviceName = defaultName
 	}
@@ -350,12 +356,18 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	// https://github.com/fsouza/go-dockerclient/blob/master/container.go#L441-L483
 	ForceTags := b.config.ForceTags
 	if len(ForceTags) != 0 {
-		ForceTags = executeTagTemplate(ForceTags, container)
+		ForceTags, err = executeTagTemplate(ForceTags, container)
+		if err != nil {
+			return nil, fmt.Errorf("force tags template failed: %w", err)
+		}
 	}
 
 	serviceTags := mapDefault(metadata, "tags", "")
 	if len(serviceTags) != 0 {
-		serviceTags = executeTagTemplate(serviceTags, container)
+		serviceTags, err = executeTagTemplate(serviceTags, container)
+		if err != nil {
+			return nil, fmt.Errorf("service tags template failed: %w", err)
+		}
 		metadata["tags"] = serviceTags
 	}
 
@@ -379,10 +391,10 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	service.Attrs = metadata
 	service.TTL = b.config.RefreshTtl
 
-	return service
+	return service, nil
 }
 
-func executeTagTemplate(tmplStr string, container *dockerapi.Container) string {
+func executeTagTemplate(tmplStr string, container *dockerapi.Container) (string, error) {
 	fm := template.FuncMap{
 			// Template function name: strSlice
 			// Description: Slice string from start to end (same as s[start:end] where s represents string).
@@ -681,16 +693,16 @@ func executeTagTemplate(tmplStr string, container *dockerapi.Container) string {
 
 		tmpl, err := template.New("tags").Funcs(fm).Parse(tmplStr)
 		if err != nil {
-			log.Fatalf("%s template parsing failed with error: %s", tmplStr, err)
+			return "", err
 		}
 
 		var buf bytes.Buffer
 		err = tmpl.Execute(&buf, container)
 		if err != nil {
-			log.Fatalf("%s template execution failed with error: %s", tmplStr, err)
+			return "", err
 		}
 
-		return buf.String()
+		return buf.String(), nil
 }
 
 func (b *Bridge) remove(containerId string, deregister bool) {
