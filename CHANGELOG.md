@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.0.4](https://github.com/fayrus/registrator/releases/tag/v9.0.4) - 2026-05-31
+
+### Security
+- Upgraded `golang.org/x/net` v0.53.0 → v0.55.0 to address 6 CVEs including one CRITICAL (CVE-2026-39821, score 9.6)
+- Upgraded `golang.org/x/sys` v0.43.0 → v0.45.0 to address CVE-2026-39824 (score 3.3)
+- `golang.org/x/text` updated transitively v0.36.0 → v0.37.0
+
 ## [v9.0.3](https://github.com/fayrus/registrator/releases/tag/v9.0.3) - 2026-05-24
 
 ### Fixed
@@ -97,7 +104,8 @@ For history prior to v8.0.0, see the upstream projects:
 - [psyhomb/registrator](https://github.com/psyhomb/registrator)
 - [gliderlabs/registrator](https://github.com/gliderlabs/registrator)
 
-[unreleased]: https://github.com/fayrus/registrator/compare/v9.0.3...HEAD
+[unreleased]: https://github.com/fayrus/registrator/compare/v9.0.4...HEAD
+[v9.0.4]: https://github.com/fayrus/registrator/compare/v9.0.3...v9.0.4
 [v9.0.3]: https://github.com/fayrus/registrator/compare/v9.0.2...v9.0.3
 [v9.0.2]: https://github.com/fayrus/registrator/compare/v9.0.1...v9.0.2
 [v9.0.1]: https://github.com/fayrus/registrator/compare/v9.0.0...v9.0.1
