@@ -7,3 +7,15 @@ release
 vendor
 
 # Files
+.*.md
+.*-resume
+
+# Agents/LLM files
+/.agents
+/.claude
+/.codex
+/.cursor
+AGENTS.md
+CLAUDE.md
+CURSOR.MD
+skills-lock.json
