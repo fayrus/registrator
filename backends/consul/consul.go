@@ -116,6 +116,9 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 			log.Printf("consul: failed to parse check_script %q: %v", script, err)
 			return nil
 		}
+		if len(args) == 0 {
+			return nil
+		}
 		check.Args = args
 	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
 		check.TTL = ttl
