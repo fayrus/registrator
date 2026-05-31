@@ -21,7 +21,7 @@ jobs:
           python-version: "3.x"
 
       - name: Install MkDocs Material
-        run: pip install --only-binary :all: mkdocs-material==9.7.6
+        run: pip install --only-binary ':all:' --require-hashes -r docs/requirements.txt
 
       - name: Build docs
         run: mkdocs build
