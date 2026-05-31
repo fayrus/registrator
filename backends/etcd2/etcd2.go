@@ -80,8 +80,16 @@ func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
 	return &Etcd2Adapter{client: client, path: uri.Path}, nil
 }
 
+type etcd2Client interface {
+	Put(ctx context.Context, key, val string, opts ...clientv3.OpOption) (*clientv3.PutResponse, error)
+	Delete(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.DeleteResponse, error)
+	Grant(ctx context.Context, ttl int64) (*clientv3.LeaseGrantResponse, error)
+	Status(ctx context.Context, endpoint string) (*clientv3.StatusResponse, error)
+	Endpoints() []string
+}
+
 type Etcd2Adapter struct {
-	client *clientv3.Client
+	client etcd2Client
 	path   string
 }
 
