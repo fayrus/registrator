@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.0.7](https://github.com/fayrus/registrator/releases/tag/v9.0.7) - 2026-05-31
+
+### Changed
+- Added `golangci-lint` to the pull request workflow with `only-new-issues` mode — enforces `errcheck`, `govet`, `staticcheck`, and `unused` on new code
+- Added `make lint` target for local use
+- Updated `actions/setup-python` from v5 to v6 in the docs deploy workflow to address Node.js 20 deprecation
+- Fixed `requirements-docs.txt` — removed inline hash that was incorrectly activating `--require-hashes` mode in pip
+
 ## [v9.0.6](https://github.com/fayrus/registrator/releases/tag/v9.0.6) - 2026-05-31
 
 ### Changed
@@ -118,7 +126,8 @@ For history prior to v8.0.0, see the upstream projects:
 - [psyhomb/registrator](https://github.com/psyhomb/registrator)
 - [gliderlabs/registrator](https://github.com/gliderlabs/registrator)
 
-[unreleased]: https://github.com/fayrus/registrator/compare/v9.0.6...HEAD
+[unreleased]: https://github.com/fayrus/registrator/compare/v9.0.7...HEAD
+[v9.0.7]: https://github.com/fayrus/registrator/compare/v9.0.6...v9.0.7
 [v9.0.6]: https://github.com/fayrus/registrator/compare/v9.0.5...v9.0.6
 [v9.0.5]: https://github.com/fayrus/registrator/compare/v9.0.4...v9.0.5
 [v9.0.4]: https://github.com/fayrus/registrator/compare/v9.0.3...v9.0.4
