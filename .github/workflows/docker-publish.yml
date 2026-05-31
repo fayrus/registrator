@@ -9,6 +9,7 @@ on:
       - "mkdocs.yml"
       - "*.md"
       - "sonar-project.properties"
+      - "requirements-docs.txt"
   workflow_dispatch:
     inputs:
       allow_vulnerable_image:
