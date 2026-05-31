@@ -10,4 +10,7 @@ dev:
 		-v /var/run/docker.sock:/tmp/docker.sock \
 		$(NAME):dev /bin/registrator $(DEV_RUN_OPTS)
 
-.PHONY: local dev
+lint:
+	golangci-lint run ./...
+
+.PHONY: local dev lint
