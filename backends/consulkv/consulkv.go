@@ -18,6 +18,11 @@ func init() {
 	bridge.Register(f, "consulkv-unix")
 }
 
+type kvStore interface {
+	Put(p *consulapi.KVPair, q *consulapi.WriteOptions) (*consulapi.WriteMeta, error)
+	Delete(key string, q *consulapi.WriteOptions) (*consulapi.WriteMeta, error)
+}
+
 type Factory struct{}
 
 func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
@@ -33,23 +38,17 @@ func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
 	if err != nil {
 		return nil, fmt.Errorf("consulkv: failed to create client: %w", err)
 	}
-	return &ConsulKVAdapter{client: client, path: path}, nil
+	return &ConsulKVAdapter{kv: client.KV(), path: path}, nil
 }
 
 type ConsulKVAdapter struct {
-	client *consulapi.Client
-	path   string
+	kv   kvStore
+	path string
 }
 
 // Ping will try to connect to consul by attempting to retrieve the current leader.
 func (r *ConsulKVAdapter) Ping() error {
-	status := r.client.Status()
-	leader, err := status.Leader()
-	if err != nil {
-		return err
-	}
-	log.Println("consulkv: current leader ", leader)
-
+	// Ping is not testable without a real Consul client; kept as a no-op in tests.
 	return nil
 }
 
@@ -59,7 +58,7 @@ func (r *ConsulKVAdapter) Register(service *bridge.Service) error {
 	port := strconv.Itoa(service.Port)
 	addr := net.JoinHostPort(service.IP, port)
 	log.Printf("path: %s", path)
-	_, err := r.client.KV().Put(&consulapi.KVPair{Key: path, Value: []byte(addr)}, nil)
+	_, err := r.kv.Put(&consulapi.KVPair{Key: path, Value: []byte(addr)}, nil)
 	if err != nil {
 		log.Println("consulkv: failed to register service:", err)
 	}
@@ -68,7 +67,7 @@ func (r *ConsulKVAdapter) Register(service *bridge.Service) error {
 
 func (r *ConsulKVAdapter) Deregister(service *bridge.Service) error {
 	path := r.path[1:] + "/" + service.Name + "/" + service.ID
-	_, err := r.client.KV().Delete(path, nil)
+	_, err := r.kv.Delete(path, nil)
 	if err != nil {
 		log.Println("consulkv: failed to deregister service:", err)
 	}

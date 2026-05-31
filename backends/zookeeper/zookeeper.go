@@ -15,6 +15,13 @@ func init() {
 	bridge.Register(new(Factory), "zookeeper")
 }
 
+type zkClient interface {
+	Exists(path string) (bool, *zk.Stat, error)
+	Create(path string, data []byte, flags int32, acl []zk.ACL) (string, error)
+	Delete(path string, version int32) error
+	Children(path string) ([]string, *zk.Stat, error)
+}
+
 type Factory struct{}
 
 func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
@@ -33,7 +40,7 @@ func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
 }
 
 type ZkAdapter struct {
-	client *zk.Conn
+	client zkClient
 	path   string
 }
 
