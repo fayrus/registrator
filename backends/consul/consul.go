@@ -11,6 +11,7 @@ import (
 	"github.com/fayrus/registrator/internal/bridge"
 	consulapi "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-cleanhttp"
+	"github.com/google/shlex"
 )
 
 const DefaultInterval = "10s"
@@ -110,7 +111,12 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 	} else if cmd := service.Attrs["check_cmd"]; cmd != "" {
 		check.Args = []string{"check-cmd", service.Origin.ContainerID[:12], service.Origin.ExposedPort, cmd}
 	} else if script := service.Attrs["check_script"]; script != "" {
-		check.Args = strings.Split(r.interpolateService(script, service), " ")
+		args, err := shlex.Split(r.interpolateService(script, service))
+		if err != nil {
+			log.Printf("consul: failed to parse check_script %q: %v", script, err)
+			return nil
+		}
+		check.Args = args
 	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
 		check.TTL = ttl
 	} else if tcp := service.Attrs["check_tcp"]; tcp != "" {
