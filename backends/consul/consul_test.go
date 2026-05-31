@@ -70,6 +70,31 @@ func TestBuildCheck_Script(t *testing.T) {
 	assert.Equal(t, []string{"/bin/check.sh", "arg1", "arg2"}, check.Args)
 }
 
+func TestBuildCheck_ScriptQuotedArguments(t *testing.T) {
+	svc := newTestService(map[string]string{
+		"check_script":   `/bin/check.sh "arg with spaces" arg2`,
+		"check_interval": "10s",
+	})
+	check := adapter().buildCheck(svc)
+	assert.Equal(t, []string{"/bin/check.sh", "arg with spaces", "arg2"}, check.Args)
+}
+
+func TestBuildCheck_ScriptMalformed(t *testing.T) {
+	svc := newTestService(map[string]string{
+		"check_script": `/bin/check.sh "unclosed quote`,
+	})
+	check := adapter().buildCheck(svc)
+	assert.Nil(t, check)
+}
+
+func TestBuildCheck_ScriptEmpty(t *testing.T) {
+	svc := newTestService(map[string]string{
+		"check_script": "   ",
+	})
+	check := adapter().buildCheck(svc)
+	assert.Nil(t, check)
+}
+
 func TestBuildCheck_GRPC(t *testing.T) {
 	svc := newTestService(map[string]string{
 		"check_grpc":            "true",
