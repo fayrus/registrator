@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.0.5](https://github.com/fayrus/registrator/releases/tag/v9.0.5) - 2026-05-31
+
+### Fixed
+- ZooKeeper `Register` now returns errors from each step (`Exists`, base path `Create`, `json.Marshal`, service path `Create`) instead of silently succeeding on partial failures
+- ZooKeeper `Deregister` returns immediately on delete failure, preventing the subsequent `Children` call from overwriting the error and masking stale state
+- ZooKeeper znode payload now stores the correct `ContainerID` instead of `ContainerHostname`
+
 ## [v9.0.4](https://github.com/fayrus/registrator/releases/tag/v9.0.4) - 2026-05-31
 
 ### Security
@@ -104,7 +111,8 @@ For history prior to v8.0.0, see the upstream projects:
 - [psyhomb/registrator](https://github.com/psyhomb/registrator)
 - [gliderlabs/registrator](https://github.com/gliderlabs/registrator)
 
-[unreleased]: https://github.com/fayrus/registrator/compare/v9.0.4...HEAD
+[unreleased]: https://github.com/fayrus/registrator/compare/v9.0.5...HEAD
+[v9.0.5]: https://github.com/fayrus/registrator/compare/v9.0.4...v9.0.5
 [v9.0.4]: https://github.com/fayrus/registrator/compare/v9.0.3...v9.0.4
 [v9.0.3]: https://github.com/fayrus/registrator/compare/v9.0.2...v9.0.3
 [v9.0.2]: https://github.com/fayrus/registrator/compare/v9.0.1...v9.0.2
