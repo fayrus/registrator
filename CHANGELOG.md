@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.0.8](https://github.com/fayrus/registrator/releases/tag/v9.0.8) - 2026-05-31
+
+### Fixed
+- Consul `check_script` is now parsed with `google/shlex` instead of `strings.Split`, correctly handling quoted arguments and embedded spaces. Malformed scripts are logged and the check is skipped rather than sending incorrect tokens to Consul.
+
+### Changed
+- Updated `FTP-Deploy-Action` from v4.3.4 to v4.4.0 to address Node.js 20 deprecation in the docs deploy workflow
+
 ## [v9.0.7](https://github.com/fayrus/registrator/releases/tag/v9.0.7) - 2026-05-31
 
 ### Changed
@@ -126,7 +134,8 @@ For history prior to v8.0.0, see the upstream projects:
 - [psyhomb/registrator](https://github.com/psyhomb/registrator)
 - [gliderlabs/registrator](https://github.com/gliderlabs/registrator)
 
-[unreleased]: https://github.com/fayrus/registrator/compare/v9.0.7...HEAD
+[unreleased]: https://github.com/fayrus/registrator/compare/v9.0.8...HEAD
+[v9.0.8]: https://github.com/fayrus/registrator/compare/v9.0.7...v9.0.8
 [v9.0.7]: https://github.com/fayrus/registrator/compare/v9.0.6...v9.0.7
 [v9.0.6]: https://github.com/fayrus/registrator/compare/v9.0.5...v9.0.6
 [v9.0.5]: https://github.com/fayrus/registrator/compare/v9.0.4...v9.0.5
