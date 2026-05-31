@@ -98,4 +98,4 @@ If you want a small Docker-native bridge that keeps existing service-discovery w
 
 ## License
 
-MIT
+[MIT](LICENSE)
