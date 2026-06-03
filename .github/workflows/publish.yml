@@ -5,9 +5,10 @@ on:
     branches: [main]
     paths-ignore:
       - ".github/**"
-      - ".dockerignore"
       - "docs/**"
-      - "mkdocs.yml"
+      - "Makefile"
+      - "LICENSE"
+      - ".dockerignore"
       - "*.md"
       - "sonar-project.properties"
       - "requirements-docs.txt"
