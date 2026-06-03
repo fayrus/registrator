@@ -4,8 +4,8 @@ site_url: https://registrator.fayr.us
 repo_url: https://github.com/fayrus/registrator
 repo_name: fayrus/registrator
 
-docs_dir: docs
-site_dir: site
+docs_dir: .
+site_dir: ../site
 
 theme:
   name: material

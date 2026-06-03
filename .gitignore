@@ -1,5 +1,4 @@
 # Folders
-
 .gvm_local
 .idea
 build
@@ -7,3 +6,6 @@ release
 vendor
 
 # Files
+.*.md
+.*-resume
+
