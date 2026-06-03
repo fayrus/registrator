@@ -13,4 +13,7 @@ dev:
 lint:
 	golangci-lint run ./...
 
-.PHONY: local dev lint
+docs-lock:
+	pip-compile --generate-hashes --output-file docs/requirements.txt docs/requirements.in
+
+.PHONY: local dev lint docs-lock
