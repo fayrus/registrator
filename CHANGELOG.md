@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.0.11](https://github.com/fayrus/registrator/releases/tag/v9.0.11) - 2026-06-03
+
+### Fixed
+- ConsulKV: `consulkv-unix` URI parsing now validates the path format before indexing, returning a descriptive error instead of panicking on malformed URIs
+- ConsulKV: `Register` and `Deregister` no longer panic when the adapter path is empty or is the root `/`
+
+### Changed
+- All existing `golangci-lint` findings resolved: replaced deprecated `ioutil` with `io`, switched to `strings.ReplaceAll`, removed deprecated `grpc.WithBlock()`, fixed unchecked error returns, and removed unused `retry` and `getopt` functions
+- Lint workflow now runs without `only-new-issues`, enforcing the full ruleset on every PR
+- Removed unused `github.com/cenkalti/backoff` dependency; `google.golang.org/grpc` demoted to indirect
+- Added `make tidy` target
+
 ## [v9.0.10](https://github.com/fayrus/registrator/releases/tag/v9.0.10) - 2026-06-03
 
 ### Fixed
