@@ -36,7 +36,7 @@ jobs:
         id: version
         run: |
           VERSION=$(cat VERSION)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
@@ -88,9 +88,11 @@ jobs:
         id: version
         run: |
           VERSION=$(cat VERSION)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "major=$(echo $VERSION | grep -oP 'v\d+')" >> $GITHUB_OUTPUT
-          echo "minor=$(echo $VERSION | grep -oP 'v\d+\.\d+')" >> $GITHUB_OUTPUT
+          {
+            echo "version=$VERSION"
+            echo "major=$(echo "$VERSION" | grep -oP 'v\d+')"
+            echo "minor=$(echo "$VERSION" | grep -oP 'v\d+\.\d+')"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4
@@ -137,18 +139,18 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git tag "$VERSION"
             git push origin "$VERSION"
-            echo "created=true" >> $GITHUB_OUTPUT
+            echo "created=true" >> "$GITHUB_OUTPUT"
           else
-            echo "created=false" >> $GITHUB_OUTPUT
+            echo "created=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Check if README changed
         id: readme
         run: |
           if git diff --name-only HEAD~1 HEAD | grep -q "^README.md$"; then
-            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Update Docker Hub description
@@ -178,4 +180,4 @@ jobs:
             echo "| README changed | ${{ steps.readme.outputs.changed }} |"
             echo "| Docker Hub description update | ${{ steps.readme.outputs.changed == 'true' && 'requested' || 'skipped' }} |"
             echo "| Vulnerable image override | ${{ github.event_name == 'workflow_dispatch' && inputs.allow_vulnerable_image || false }} |"
-          } >> $GITHUB_STEP_SUMMARY
+          } >> "$GITHUB_STEP_SUMMARY"
