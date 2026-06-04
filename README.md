@@ -4,7 +4,10 @@ Docker service registry bridge.
 
 [![Docker pulls](https://img.shields.io/docker/pulls/fayrus/registrator.svg)](https://hub.docker.com/r/fayrus/registrator/)
 [![Docker Image Version](https://img.shields.io/docker/v/fayrus/registrator/latest)](https://hub.docker.com/r/fayrus/registrator/tags)
-[![Build and Push Docker Image](https://github.com/fayrus/registrator/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/fayrus/registrator/actions/workflows/docker-publish.yml)
+[![Build and Push Docker Image](https://github.com/fayrus/registrator/actions/workflows/publish.yml/badge.svg)](https://github.com/fayrus/registrator/actions/workflows/publish.yml)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=fayrus_registrator&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=fayrus_registrator)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=fayrus_registrator&metric=coverage)](https://sonarcloud.io/summary/new_code?id=fayrus_registrator)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=fayrus_registrator&metric=bugs)](https://sonarcloud.io/summary/new_code?id=fayrus_registrator)
 
 ## Overview
 
