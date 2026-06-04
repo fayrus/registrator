@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -203,7 +203,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		return
 	}
 
-	container, err := b.docker.InspectContainer(containerId)
+	container, err := b.docker.InspectContainerWithOptions(dockerapi.InspectContainerOptions{ID: containerId})
 	if err != nil {
 		log.Println("unable to inspect container:", containerId[:12], err)
 		return
@@ -342,7 +342,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) (*Service, error) {
 		if strings.HasPrefix(networkMode, "container:") {
 			networkContainerId := strings.Split(networkMode, ":")[1]
 			log.Println(service.Name + ": detected container NetworkMode, linked to: " + networkContainerId[:12])
-			networkContainer, err := b.docker.InspectContainer(networkContainerId)
+			networkContainer, err := b.docker.InspectContainerWithOptions(dockerapi.InspectContainerOptions{ID: networkContainerId})
 			if err != nil {
 				log.Println("unable to inspect network container:", networkContainerId[:12], err)
 			} else {
@@ -651,8 +651,8 @@ func executeTagTemplate(tmplStr string, container *dockerapi.Container) (string,
 					return []byte("")
 				}
 
-				body, err := ioutil.ReadAll(res.Body)
-				res.Body.Close()
+				body, err := io.ReadAll(res.Body)
+				_ = res.Body.Close()
 				if err != nil {
 					log.Printf("httpGet template function encountered an error while reading HTTP body payload: %v", err)
 					return []byte("")
@@ -739,7 +739,7 @@ func (b *Bridge) shouldRemove(containerId string) bool {
 	if b.config.DeregisterCheck == "always" {
 		return true
 	}
-	container, err := b.docker.InspectContainer(containerId)
+	container, err := b.docker.InspectContainerWithOptions(dockerapi.InspectContainerOptions{ID: containerId})
 	if _, ok := err.(*dockerapi.NoSuchContainer); ok {
 		// the container has already been removed from Docker
 		// e.g. probabably run with "--rm" to remove immediately

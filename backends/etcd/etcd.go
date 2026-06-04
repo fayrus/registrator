@@ -2,7 +2,7 @@ package etcd
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -34,10 +34,10 @@ func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
 		return nil, fmt.Errorf("etcd: error retrieving version: %w", err)
 	}
 
-	defer res.Body.Close()
-	body, _ := ioutil.ReadAll(res.Body)
+	defer func() { _ = res.Body.Close() }()
+	body, _ := io.ReadAll(res.Body)
 
-	if match, _ := regexp.Match("0\\.4\\.*", body); match == true {
+	if match, _ := regexp.Match("0\\.4\\.*", body); match {
 		log.Println("etcd: using v0 client")
 		return &EtcdAdapter{client: etcd.NewClient(urls), path: uri.Path}, nil
 	}

@@ -30,13 +30,6 @@ var retryAttempts = flag.Int("retry-attempts", 0, "Max retry attempts to establi
 var retryInterval = flag.Int("retry-interval", 2000, "Interval (in millisecond) between retry-attempts.")
 var cleanup = flag.Bool("cleanup", false, "Remove dangling services")
 
-func getopt(name, def string) string {
-	if env := os.Getenv(name); env != "" {
-		return env
-	}
-	return def
-}
-
 func assert(err error) {
 	if err != nil {
 		log.Fatal(err)
@@ -110,9 +103,9 @@ func main() {
 	dockerHost := os.Getenv("DOCKER_HOST")
 	if dockerHost == "" {
 		if runtime.GOOS != "windows" {
-			os.Setenv("DOCKER_HOST", "unix:///tmp/docker.sock")
+			_ = os.Setenv("DOCKER_HOST", "unix:///tmp/docker.sock")
 		} else {
-			os.Setenv("DOCKER_HOST", "npipe:////./pipe/docker_engine")
+			_ = os.Setenv("DOCKER_HOST", "npipe:////./pipe/docker_engine")
 		}
 	}
 

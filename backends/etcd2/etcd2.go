@@ -15,7 +15,6 @@ import (
 
 	"github.com/fayrus/registrator/internal/bridge"
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"google.golang.org/grpc"
 )
 
 func init() {
@@ -47,7 +46,6 @@ func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
 	cfg := clientv3.Config{
 		Endpoints:   endpoints,
 		DialTimeout: 5 * time.Second,
-		DialOptions: []grpc.DialOption{grpc.WithBlock()},
 	}
 
 	certFile := os.Getenv("ETCD_CERT_FILE")

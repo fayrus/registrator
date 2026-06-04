@@ -2,6 +2,7 @@ package consul
 
 import (
 	"errors"
+	"net/url"
 	"testing"
 
 	"github.com/fayrus/registrator/internal/bridge"
@@ -80,5 +81,35 @@ func TestDeregister_ReturnsErrorOnDeleteFail(t *testing.T) {
 	kv := &fakeKV{delErr: errors.New("consul: connection refused")}
 	if err := adapter(kv).Deregister(testSvc()); err == nil {
 		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestRegister_EmptyPath(t *testing.T) {
+	kv := &fakeKV{}
+	a := &ConsulKVAdapter{kv: kv, path: ""}
+	if err := a.Register(testSvc()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if kv.lastKey != "/web/web-1" {
+		t.Errorf("unexpected key: %s", kv.lastKey)
+	}
+}
+
+func TestRegister_RootPath(t *testing.T) {
+	kv := &fakeKV{}
+	a := &ConsulKVAdapter{kv: kv, path: "/"}
+	if err := a.Register(testSvc()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if kv.lastKey != "/web/web-1" {
+		t.Errorf("unexpected key: %s", kv.lastKey)
+	}
+}
+
+func TestNew_MalformedUnixURI(t *testing.T) {
+	uri, _ := url.Parse("consulkv-unix:///var/run/consul.sock")
+	_, err := new(Factory).New(uri)
+	if err == nil {
+		t.Fatal("expected error for malformed consulkv-unix URI, got nil")
 	}
 }
