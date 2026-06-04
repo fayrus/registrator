@@ -145,8 +145,8 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 			check.TLSSkipVerify = true
 		}
 	}
-	if deregister_after := service.Attrs["check_deregister_after"]; deregister_after != "" {
-		check.DeregisterCriticalServiceAfter = deregister_after
+	if deregisterAfter := service.Attrs["check_deregister_after"]; deregisterAfter != "" {
+		check.DeregisterCriticalServiceAfter = deregisterAfter
 	}
 	return check
 }
