@@ -13,26 +13,18 @@ on:
 
 jobs:
   workflow-lint:
-    name: Workflow Lint
+    name: Lint (Actions)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
-      - name: Set up Go
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
-        with:
-          go-version-file: go.mod
-
-      - name: Install actionlint
-        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-
       - name: Lint workflows
-        run: actionlint
+        uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
 
   tests:
-    name: Tests
+    name: Tests (Go)
     runs-on: ubuntu-latest
 
     steps:
@@ -48,7 +40,7 @@ jobs:
         run: go test ./...
 
   lint:
-    name: Lint
+    name: Lint (Go)
     runs-on: ubuntu-latest
 
     steps:
