@@ -4,7 +4,6 @@ go 1.26.3
 
 require (
 	github.com/buger/jsonparser v1.1.2
-	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/coreos/go-etcd v2.0.0+incompatible
 	github.com/fsouza/go-dockerclient v1.13.1
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
@@ -13,7 +12,6 @@ require (
 	github.com/samuel/go-zookeeper v0.0.0-20201211165307-7117e9ea2414
 	github.com/stretchr/testify v1.11.1
 	go.etcd.io/etcd/client/v3 v3.6.10
-	google.golang.org/grpc v1.80.0
 	gopkg.in/coreos/go-etcd.v0 v0.4.6
 )
 
@@ -65,6 +63,7 @@ require (
 	golang.org/x/text v0.37.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260420184626-e10c466a9529 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260420184626-e10c466a9529 // indirect
+	google.golang.org/grpc v1.80.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
