@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.0.10](https://github.com/fayrus/registrator/releases/tag/v9.0.10) - 2026-06-03
+
+### Fixed
+- ConsulKV: replace unsafe `path[1:]` slice with `strings.TrimPrefix` in `Register` and `Deregister` to avoid panic or incorrect path when the configured path lacks a leading slash
+- ConsulKV: remove leftover debug log statements from `Register`
+- ZooKeeper: `Factory.New` now returns an error early if `Exists` fails, instead of continuing with an incorrect `exists=false` value
+- ZooKeeper: `Factory.New` now propagates the error from `Create` instead of discarding it silently
+- ZooKeeper: service registration nodes are now created as persistent (`flags=0`) instead of ephemeral (`flags=1`), preventing unintended node deletion on session loss
+- Consul: rename local variable `deregister_after` to `deregisterAfter` to follow Go naming conventions
+
+### Changed
+- CI pipelines restructured: unified test and lint workflow, improved publish pipeline with dedicated security scan stage, and path filters added to avoid unnecessary runs on documentation-only changes
+
 ## [v9.0.9](https://github.com/fayrus/registrator/releases/tag/v9.0.9) - 2026-05-31
 
 ### Fixed

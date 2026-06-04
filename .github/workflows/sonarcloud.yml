@@ -3,9 +3,27 @@ name: SonarCloud Analysis
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - ".github/ISSUE_TEMPLATE/**"
+      - "docs/**"
+      - "mkdocs.yml"
+      - "*.md"
+      - "requirements-docs.txt"
+      - "Makefile"
+      - "LICENSE"
+      - ".dockerignore"
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
+    paths-ignore:
+      - ".github/ISSUE_TEMPLATE/**"
+      - "docs/**"
+      - "mkdocs.yml"
+      - "*.md"
+      - "requirements-docs.txt"
+      - "Makefile"
+      - "LICENSE"
+      - ".dockerignore"
 
 jobs:
   sonarcloud:
