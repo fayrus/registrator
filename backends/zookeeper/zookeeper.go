@@ -31,10 +31,13 @@ func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
 	}
 	exists, _, err := c.Exists(uri.Path)
 	if err != nil {
-		log.Println("zookeeper: error checking if base path exists:", err)
+		return nil, err
 	}
 	if !exists {
-		c.Create(uri.Path, []byte{}, 0, zk.WorldACL(zk.PermAll))
+		_, err = c.Create(uri.Path, []byte{}, 0, zk.WorldACL(zk.PermAll))
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &ZkAdapter{client: c, path: uri.Path}, nil
 }
@@ -81,7 +84,7 @@ func (r *ZkAdapter) Register(service *bridge.Service) error {
 	}
 
 	path := basePath + "/" + service.IP + ":" + publicPortString
-	_, err = r.client.Create(path, body, 1, acl)
+	_, err = r.client.Create(path, body, 0, acl)
 	return err
 }
 
