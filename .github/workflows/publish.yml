@@ -21,15 +21,66 @@ on:
         type: boolean
 
 jobs:
-  build:
+  security-scan:
+    name: Security Scan
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       security-events: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(cat VERSION)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+
+      - name: Build image for security scan
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
+        env:
+          DOCKER_BUILD_SUMMARY: false
+          DOCKER_BUILD_RECORD_UPLOAD: false
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: fayrus/registrator:${{ steps.version.outputs.version }}
+          pull: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: fayrus/registrator:${{ steps.version.outputs.version }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_vulnerable_image && '0' || '1' }}
+
+      - name: Upload Trivy results to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@87557b9c84dde89fdd9b10e88954ac2f4248e463 # v4.36.1
+        with:
+          sarif_file: trivy-results.sarif
+
+  publish:
+    name: Publish
+    needs: security-scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -37,9 +88,11 @@ jobs:
         id: version
         run: |
           VERSION=$(cat VERSION)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "major=$(echo $VERSION | grep -oP 'v\d+')" >> $GITHUB_OUTPUT
-          echo "minor=$(echo $VERSION | grep -oP 'v\d+\.\d+')" >> $GITHUB_OUTPUT
+          {
+            echo "version=$VERSION"
+            echo "major=$(echo "$VERSION" | grep -oP 'v\d+')"
+            echo "minor=$(echo "$VERSION" | grep -oP 'v\d+\.\d+')"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4
@@ -64,35 +117,8 @@ jobs:
             type=raw,value=${{ steps.version.outputs.minor }}
             type=raw,value=${{ steps.version.outputs.major }}
 
-      - name: Build image for security scan
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
-        with:
-          context: .
-          platforms: linux/amd64
-          load: true
-          tags: fayrus/registrator:${{ steps.version.outputs.version }}
-          labels: ${{ steps.meta.outputs.labels }}
-          pull: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: fayrus/registrator:${{ steps.version.outputs.version }}
-          format: sarif
-          output: trivy-results.sarif
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_vulnerable_image && '0' || '1' }}
-
-      - name: Upload Trivy results to GitHub Security
-        if: always()
-        uses: github/codeql-action/upload-sarif@7211b7c8077ea37d8641b6271f6a365a22a5fbfa # v4
-        with:
-          sarif_file: trivy-results.sarif
-
       - name: Build and push
+        id: publish
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
         with:
           context: .
@@ -105,6 +131,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Create git tag
+        id: git_tag
         run: |
           VERSION=$(cat VERSION)
           if ! git ls-remote --tags origin "$VERSION" | grep -q "$VERSION"; then
@@ -112,15 +139,18 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git tag "$VERSION"
             git push origin "$VERSION"
+            echo "created=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "created=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Check if README changed
         id: readme
         run: |
           if git diff --name-only HEAD~1 HEAD | grep -q "^README.md$"; then
-            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Update Docker Hub description
@@ -130,3 +160,24 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
           repository: fayrus/registrator
+
+      - name: Publish summary
+        if: always()
+        run: |
+          {
+            echo "## Publish summary"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Job status | ${{ job.status }} |"
+            echo "| Version | ${{ steps.version.outputs.version }} |"
+            echo "| Major tag | ${{ steps.version.outputs.major }} |"
+            echo "| Minor tag | ${{ steps.version.outputs.minor }} |"
+            echo "| Image | fayrus/registrator |"
+            echo "| Published tags | latest, ${{ steps.version.outputs.version }}, ${{ steps.version.outputs.minor }}, ${{ steps.version.outputs.major }} |"
+            echo "| Image digest | ${{ steps.publish.outputs.digest }} |"
+            echo "| Git tag created | ${{ steps.git_tag.outputs.created }} |"
+            echo "| README changed | ${{ steps.readme.outputs.changed }} |"
+            echo "| Docker Hub description update | ${{ steps.readme.outputs.changed == 'true' && 'requested' || 'skipped' }} |"
+            echo "| Vulnerable image override | ${{ github.event_name == 'workflow_dispatch' && inputs.allow_vulnerable_image || false }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

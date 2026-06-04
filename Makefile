@@ -1,5 +1,6 @@
 NAME=registrator
 DEV_RUN_OPTS ?= consul:
+LINT_OUTPUT ?= golangci-lint.out
 
 local:
 	docker build -t $(NAME):local .
@@ -13,7 +14,12 @@ dev:
 lint:
 	golangci-lint run ./...
 
+lint-output:
+	@golangci-lint run ./... > $(LINT_OUTPUT) 2>&1; status=$$?; \
+	echo "golangci-lint output written to $(LINT_OUTPUT)"; \
+	exit $$status
+
 docs-lock:
 	pip-compile --generate-hashes --output-file docs/requirements.txt docs/requirements.in
 
-.PHONY: local dev lint docs-lock
+.PHONY: local dev lint lint-output docs-lock
