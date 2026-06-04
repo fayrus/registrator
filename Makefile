@@ -19,7 +19,10 @@ lint-output:
 	echo "golangci-lint output written to $(LINT_OUTPUT)"; \
 	exit $$status
 
+tidy:
+	go mod tidy
+
 docs-lock:
 	pip-compile --generate-hashes --output-file docs/requirements.txt docs/requirements.in
 
-.PHONY: local dev lint lint-output docs-lock
+.PHONY: local dev lint lint-output tidy docs-lock
