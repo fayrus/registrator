@@ -30,6 +30,9 @@ func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
 	path := uri.Path
 	if uri.Scheme == "consulkv-unix" {
 		spl := strings.SplitN(uri.Path, ":", 2)
+		if len(spl) != 2 {
+			return nil, fmt.Errorf("consulkv: malformed consulkv-unix URI: expected /socket/path:/kv/path, got %q", uri.Path)
+		}
 		config.Address, path = "unix://"+spl[0], spl[1]
 	} else if uri.Host != "" {
 		config.Address = uri.Host

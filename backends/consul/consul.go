@@ -122,11 +122,11 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 		check.Args = args
 	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
 		check.TTL = ttl
-	} else if tcp := service.Attrs["check_tcp"]; tcp != "" {
+	} else if service.Attrs["check_tcp"] != "" {
 		check.TCP = fmt.Sprintf("%s:%d", service.IP, service.Port)
-	} else if grpc := service.Attrs["check_grpc"]; grpc != "" {
+	} else if service.Attrs["check_grpc"] != "" {
 		check.GRPC = fmt.Sprintf("%s:%d", service.IP, service.Port)
-		if useTLS := service.Attrs["check_grpc_use_tls"]; useTLS != "" {
+		if service.Attrs["check_grpc_use_tls"] != "" {
 			check.GRPCUseTLS = true
 		}
 	} else {
@@ -141,7 +141,7 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 		if timeout := service.Attrs["check_timeout"]; timeout != "" {
 			check.Timeout = timeout
 		}
-		if tlsSkipVerify := service.Attrs["check_tls_skip_verify"]; tlsSkipVerify != "" {
+		if service.Attrs["check_tls_skip_verify"] != "" {
 			check.TLSSkipVerify = true
 		}
 	}
