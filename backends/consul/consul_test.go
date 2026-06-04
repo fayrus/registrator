@@ -122,6 +122,33 @@ func TestBuildCheck_InitialStatus(t *testing.T) {
 	assert.Equal(t, "passing", check.Status)
 }
 
+func TestBuildCheck_HTTPMethod(t *testing.T) {
+	svc := newTestService(map[string]string{
+		"check_http":        "/health",
+		"check_http_method": "POST",
+	})
+	check := adapter().buildCheck(svc)
+	assert.Equal(t, "POST", check.Method)
+}
+
+func TestBuildCheck_HTTPSMethod(t *testing.T) {
+	svc := newTestService(map[string]string{
+		"check_https":        "/health",
+		"check_https_method": "POST",
+	})
+	check := adapter().buildCheck(svc)
+	assert.Equal(t, "POST", check.Method)
+}
+
+func TestBuildCheck_DeregisterAfter(t *testing.T) {
+	svc := newTestService(map[string]string{
+		"check_http":              "/health",
+		"check_deregister_after":  "10m",
+	})
+	check := adapter().buildCheck(svc)
+	assert.Equal(t, "10m", check.DeregisterCriticalServiceAfter)
+}
+
 func TestEnableTagOverride_True(t *testing.T) {
 	svc := newTestService(map[string]string{"enable_tag_override": "true"})
 	assert.Equal(t, "true", svc.Attrs["enable_tag_override"])
