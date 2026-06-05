@@ -176,22 +176,13 @@ func isContainerActive(id string, containers []dockerapi.APIContainers) bool {
 }
 
 func (b *Bridge) removeDanglingServices(extServices []*Service) {
-Outer:
 	for _, extService := range extServices {
 		matches := serviceIDPattern.FindStringSubmatch(extService.ID)
-		if len(matches) != 3 {
+		if len(matches) != 3 || matches[1] != Hostname {
 			continue
 		}
-		if matches[1] != Hostname {
+		if b.isServiceRegistered(extService.Name, matches[2]) {
 			continue
-		}
-		serviceContainerName := matches[2]
-		for _, listing := range b.services {
-			for _, service := range listing {
-				if service.Name == extService.Name && serviceContainerName == service.Origin.container.Name[1:] {
-					continue Outer
-				}
-			}
 		}
 		log.Println("dangling:", extService.ID)
 		if err := b.registry.Deregister(extService); err != nil {
@@ -200,6 +191,17 @@ Outer:
 		}
 		log.Println(extService.ID, "removed")
 	}
+}
+
+func (b *Bridge) isServiceRegistered(name, containerName string) bool {
+	for _, listing := range b.services {
+		for _, service := range listing {
+			if service.Name == name && service.Origin.container.Name[1:] == containerName {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (b *Bridge) add(containerId string, quiet bool) {
@@ -423,115 +425,114 @@ func executeTagTemplate(tmplStr string, container *dockerapi.Container) (string,
 
 func buildTagFuncMap() template.FuncMap {
 	return template.FuncMap{
-		// strSlice slices a string from start to end (same as s[start:end]).
-		"strSlice": func(v string, i ...int) string {
-			if len(i) == 1 {
-				if len(v) >= i[0] {
-					return v[i[0]:]
-				}
-				return v
-			}
-			if len(i) == 2 && len(v) >= i[0] && len(v) >= i[1] {
-				if i[0] == 0 {
-					return v[:i[1]]
-				}
-				if i[1] < i[0] {
-					return v[i[0]:]
-				}
-				return v[i[0]:i[1]]
-			}
-			return v
-		},
-		// sIndex returns element i from slice s; negative i counts from the end.
-		"sIndex": func(i int, s []string) string {
-			if i < 0 {
-				i = i * -1
-				if i >= len(s) {
-					return s[0]
-				}
-				return s[len(s)-i]
-			}
-			if i >= len(s) {
-				return s[len(s)-1]
-			}
-			return s[i]
-		},
-		// mIndex returns the value for key k in map m.
-		"mIndex": func(k string, m map[string]string) string {
-			return m[k]
-		},
-		"toUpper": func(v string) string { return strings.ToUpper(v) },
-		"toLower": func(v string) string { return strings.ToLower(v) },
-		// replace replaces n occurrences of old with new in v.
-		"replace": func(n int, old, new, v string) string {
-			return strings.Replace(v, old, new, n)
-		},
-		// join joins slice s with sep.
-		"join": func(sep string, s []string) string { return strings.Join(s, sep) },
-		// split splits v by sep.
-		"split": func(sep, v string) []string { return strings.Split(v, sep) },
-		// splitIndex splits v by sep and returns element i.
-		"splitIndex": func(i int, sep, v string) string {
-			l := strings.Split(v, sep)
-			if i < 0 {
-				i = i * -1
-				if i >= len(l) {
-					return l[0]
-				}
-				return l[len(l)-i]
-			}
-			if i >= len(l) {
-				return l[len(l)-1]
-			}
-			return l[i]
-		},
-		// matchFirstElement returns the first element of s matching regex r.
-		"matchFirstElement": func(r string, s []string) string {
-			re := regexp.MustCompile(r)
-			for _, e := range s {
-				if re.MatchString(e) {
-					return e
-				}
-			}
-			return ""
-		},
-		// matchAllElements returns all elements of s matching regex r.
-		"matchAllElements": func(r string, s []string) []string {
-			var m []string
-			re := regexp.MustCompile(r)
-			for _, e := range s {
-				if re.MatchString(e) {
-					m = append(m, e)
-				}
-			}
-			return m
-		},
-		// httpGet fetches a URL and returns the body bytes.
-		"httpGet": func(url string) []byte {
-			c := &http.Client{Timeout: 10 * time.Second}
-			res, err := c.Get(url)
-			if err != nil {
-				log.Printf("httpGet template function encountered an error while executing HTTP request: %v", err)
-				return []byte("")
-			}
-			body, err := io.ReadAll(res.Body)
-			_ = res.Body.Close()
-			if err != nil {
-				log.Printf("httpGet template function encountered an error while reading HTTP body payload: %v", err)
-				return []byte("")
-			}
-			return body
-		},
-		// jsonParse extracts a value from b using double-colon-separated keys.
-		"jsonParse": func(b []byte, k string) string {
-			keys := strings.Split(k, "::")
-			js, _, _, err := jsonp.Get(b, keys...)
-			if err != nil {
-				log.Printf("jsonParse template function encountered an error while parsing JSON object %v: %v", keys, err)
-			}
-			return string(js)
-		},
+		"strSlice":          tmplStrSlice,
+		"sIndex":            tmplSIndex,
+		"mIndex":            func(k string, m map[string]string) string { return m[k] },
+		"toUpper":           func(v string) string { return strings.ToUpper(v) },
+		"toLower":           func(v string) string { return strings.ToLower(v) },
+		"replace":           func(n int, old, new, v string) string { return strings.Replace(v, old, new, n) },
+		"join":              func(sep string, s []string) string { return strings.Join(s, sep) },
+		"split":             func(sep, v string) []string { return strings.Split(v, sep) },
+		"splitIndex":        tmplSplitIndex,
+		"matchFirstElement": tmplMatchFirst,
+		"matchAllElements":  tmplMatchAll,
+		"httpGet":           tmplHTTPGet,
+		"jsonParse":         tmplJSONParse,
 	}
+}
+
+func tmplStrSlice(v string, i ...int) string {
+	if len(i) == 1 {
+		if len(v) >= i[0] {
+			return v[i[0]:]
+		}
+		return v
+	}
+	if len(i) == 2 && len(v) >= i[0] && len(v) >= i[1] {
+		if i[0] == 0 {
+			return v[:i[1]]
+		}
+		if i[1] < i[0] {
+			return v[i[0]:]
+		}
+		return v[i[0]:i[1]]
+	}
+	return v
+}
+
+func tmplSIndex(i int, s []string) string {
+	if i < 0 {
+		i = i * -1
+		if i >= len(s) {
+			return s[0]
+		}
+		return s[len(s)-i]
+	}
+	if i >= len(s) {
+		return s[len(s)-1]
+	}
+	return s[i]
+}
+
+func tmplSplitIndex(i int, sep, v string) string {
+	l := strings.Split(v, sep)
+	if i < 0 {
+		i = i * -1
+		if i >= len(l) {
+			return l[0]
+		}
+		return l[len(l)-i]
+	}
+	if i >= len(l) {
+		return l[len(l)-1]
+	}
+	return l[i]
+}
+
+func tmplMatchFirst(r string, s []string) string {
+	re := regexp.MustCompile(r)
+	for _, e := range s {
+		if re.MatchString(e) {
+			return e
+		}
+	}
+	return ""
+}
+
+func tmplMatchAll(r string, s []string) []string {
+	var m []string
+	re := regexp.MustCompile(r)
+	for _, e := range s {
+		if re.MatchString(e) {
+			m = append(m, e)
+		}
+	}
+	return m
+}
+
+func tmplHTTPGet(url string) []byte {
+	c := &http.Client{Timeout: 10 * time.Second}
+	res, err := c.Get(url)
+	if err != nil {
+		log.Printf("httpGet template function encountered an error while executing HTTP request: %v", err)
+		return []byte("")
+	}
+	body, err := io.ReadAll(res.Body)
+	_ = res.Body.Close()
+	if err != nil {
+		log.Printf("httpGet template function encountered an error while reading HTTP body payload: %v", err)
+		return []byte("")
+	}
+	return body
+}
+
+func tmplJSONParse(b []byte, k string) string {
+	keys := strings.Split(k, "::")
+	js, _, _, err := jsonp.Get(b, keys...)
+	if err != nil {
+		log.Printf("jsonParse template function encountered an error while parsing JSON object %v: %v", keys, err)
+	}
+	return string(js)
 }
 
 func (b *Bridge) remove(containerId string, deregister bool) {

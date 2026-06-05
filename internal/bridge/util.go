@@ -93,24 +93,36 @@ func applyMetaEntry(kv, port, portType string, metadata map[string]string, metad
 	isExactPort := err == nil
 	isRangePort := !isExactPort && strings.Contains(portkey[0], "-") && portInRange(portkey[0], port)
 
-	if isExactPort || isRangePort {
-		if len(portkey) < 2 || (isExactPort && portkey[0] != port) || (isRangePort && !portInRange(portkey[0], port)) {
+	if isExactPort {
+		if portkey[0] != port {
 			return
 		}
-		// Check for SERVICE_<port>_<protocol>_<key> format
-		protokey := strings.SplitN(portkey[1], "_", 2)
-		if knownProtocols[protokey[0]] && len(protokey) > 1 {
-			if protokey[0] != portType {
-				return
-			}
-			metadata[protokey[1]] = kvp[1]
-			metadataFromPort[protokey[1]] = true
-		} else {
-			metadata[portkey[1]] = kvp[1]
-			metadataFromPort[portkey[1]] = true
+		applyPortKey(portkey, portType, kvp[1], metadata, metadataFromPort)
+		return
+	}
+	if isRangePort {
+		applyPortKey(portkey, portType, kvp[1], metadata, metadataFromPort)
+		return
+	}
+	metadata[key] = kvp[1]
+}
+
+// applyPortKey writes a port-specific SERVICE_<port>_[<proto>_]<key> entry to metadata.
+func applyPortKey(portkey []string, portType, value string, metadata map[string]string, metadataFromPort map[string]bool) {
+	if len(portkey) < 2 {
+		return
+	}
+	// Check for SERVICE_<port>_<protocol>_<key> format
+	protokey := strings.SplitN(portkey[1], "_", 2)
+	if knownProtocols[protokey[0]] && len(protokey) > 1 {
+		if protokey[0] != portType {
+			return
 		}
+		metadata[protokey[1]] = value
+		metadataFromPort[protokey[1]] = true
 	} else {
-		metadata[key] = kvp[1]
+		metadata[portkey[1]] = value
+		metadataFromPort[portkey[1]] = true
 	}
 }
 
