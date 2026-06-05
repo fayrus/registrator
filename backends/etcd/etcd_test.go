@@ -3,6 +3,7 @@ package etcd
 import (
 	"context"
 	"errors"
+	"net/url"
 	"testing"
 
 	"github.com/fayrus/registrator/internal/bridge"
@@ -134,5 +135,51 @@ func TestServices_ReturnsEmpty(t *testing.T) {
 	}
 	if len(svcs) != 0 {
 		t.Errorf("expected empty slice, got %d services", len(svcs))
+	}
+}
+
+func TestPing_Success(t *testing.T) {
+	if err := adapter(&fakeEtcdClient{}).Ping(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPing_Error(t *testing.T) {
+	c := &fakeEtcdClient{pingErr: errors.New("etcd: unavailable")}
+	if err := adapter(c).Ping(); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestNew_NoTLS(t *testing.T) {
+	uri, _ := url.Parse("etcd://localhost:12379/services")
+	a, err := (&Factory{}).New(uri)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if a == nil {
+		t.Fatal("expected adapter, got nil")
+	}
+}
+
+func TestNew_TLSKeyPairError(t *testing.T) {
+	t.Setenv("ETCD_CERT_FILE", "/nonexistent/cert.pem")
+	t.Setenv("ETCD_KEY_FILE", "/nonexistent/key.pem")
+	uri, _ := url.Parse("etcd://localhost:12379/services")
+	_, err := (&Factory{}).New(uri)
+	if err == nil {
+		t.Fatal("expected error for missing TLS files, got nil")
+	}
+}
+
+func TestNew_ETCDEndpointsEnv(t *testing.T) {
+	t.Setenv("ETCD_ENDPOINTS", "localhost:12380, localhost:12381")
+	uri, _ := url.Parse("etcd://localhost:12379/services")
+	a, err := (&Factory{}).New(uri)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if a == nil {
+		t.Fatal("expected adapter, got nil")
 	}
 }
