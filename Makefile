@@ -1,9 +1,10 @@
-NAME=registrator
+NAME=development/registrator
 DEV_RUN_OPTS ?= consul:
 LINT_OUTPUT ?= golangci-lint.out
+COVERAGE_OUT ?= coverage.out
 
 local:
-	docker build -t $(NAME):local .
+	docker build --no-cache -t $(NAME):local .
 
 dev:
 	docker build -t $(NAME):dev .
@@ -19,10 +20,21 @@ lint-output:
 	echo "golangci-lint output written to $(LINT_OUTPUT)"; \
 	exit $$status
 
+test:
+	go test ./...
+
+coverage:
+	go test ./... -coverprofile=$(COVERAGE_OUT)
+	go tool cover -func=$(COVERAGE_OUT)
+
+coverage-html:
+	go test ./... -coverprofile=$(COVERAGE_OUT)
+	go tool cover -html=$(COVERAGE_OUT)
+
 tidy:
 	go mod tidy
 
 docs-lock:
 	pip-compile --generate-hashes --output-file docs/requirements.txt docs/requirements.in
 
-.PHONY: local dev lint lint-output tidy docs-lock
+.PHONY: local dev lint lint-output test coverage coverage-html tidy docs-lock

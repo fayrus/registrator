@@ -1,18 +1,17 @@
 package etcd
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"log"
 	"net"
-	"net/http"
 	"net/url"
-	"regexp"
 	"strconv"
+	"time"
 
-	etcd2 "github.com/coreos/go-etcd/etcd"
 	"github.com/fayrus/registrator/internal/bridge"
-	etcd "gopkg.in/coreos/go-etcd.v0/etcd"
+	"github.com/fayrus/registrator/internal/etcdtls"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 func init() {
@@ -22,79 +21,49 @@ func init() {
 type Factory struct{}
 
 func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
-	urls := make([]string, 0)
-	if uri.Host != "" {
-		urls = append(urls, "http://"+uri.Host)
-	} else {
-		urls = append(urls, "http://127.0.0.1:2379")
-	}
-
-	res, err := http.Get(urls[0] + "/version")
+	client, err := etcdtls.NewClient(uri.Host)
 	if err != nil {
-		return nil, fmt.Errorf("etcd: error retrieving version: %w", err)
+		return nil, fmt.Errorf("etcd: %w", err)
 	}
+	return &EtcdAdapter{client: client, path: uri.Path}, nil
+}
 
-	defer func() { _ = res.Body.Close() }()
-	body, _ := io.ReadAll(res.Body)
-
-	if match, _ := regexp.Match("0\\.4\\.*", body); match {
-		log.Println("etcd: using v0 client")
-		return &EtcdAdapter{client: etcd.NewClient(urls), path: uri.Path}, nil
-	}
-
-	return &EtcdAdapter{client2: etcd2.NewClient(urls), path: uri.Path}, nil
+type etcdClient interface {
+	Put(ctx context.Context, key, val string, opts ...clientv3.OpOption) (*clientv3.PutResponse, error)
+	Delete(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.DeleteResponse, error)
+	Grant(ctx context.Context, ttl int64) (*clientv3.LeaseGrantResponse, error)
+	Status(ctx context.Context, endpoint string) (*clientv3.StatusResponse, error)
+	Endpoints() []string
 }
 
 type EtcdAdapter struct {
-	client  *etcd.Client
-	client2 *etcd2.Client
-
-	path string
+	client etcdClient
+	path   string
 }
 
 func (r *EtcdAdapter) Ping() error {
-	r.syncEtcdCluster()
-
-	var err error
-	if r.client != nil {
-		rr := etcd.NewRawRequest("GET", "version", nil, nil)
-		_, err = r.client.SendRequest(rr)
-	} else {
-		rr := etcd2.NewRawRequest("GET", "version", nil, nil)
-		_, err = r.client2.SendRequest(rr)
-	}
-
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *EtcdAdapter) syncEtcdCluster() {
-	var result bool
-	if r.client != nil {
-		result = r.client.SyncCluster()
-	} else {
-		result = r.client2.SyncCluster()
-	}
-
-	if !result {
-		log.Println("etcd: sync cluster was unsuccessful")
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := r.client.Status(ctx, r.client.Endpoints()[0])
+	return err
 }
 
 func (r *EtcdAdapter) Register(service *bridge.Service) error {
-	r.syncEtcdCluster()
+	key := r.path + "/" + service.Name + "/" + service.ID
+	value := net.JoinHostPort(service.IP, strconv.Itoa(service.Port))
 
-	path := r.path + "/" + service.Name + "/" + service.ID
-	port := strconv.Itoa(service.Port)
-	addr := net.JoinHostPort(service.IP, port)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
 	var err error
-	if r.client != nil {
-		_, err = r.client.Set(path, addr, uint64(service.TTL))
+	if service.TTL > 0 {
+		lease, lerr := r.client.Grant(ctx, int64(service.TTL))
+		if lerr != nil {
+			return lerr
+		}
+		_, err = r.client.Put(ctx, key, value, clientv3.WithLease(lease.ID))
 	} else {
-		_, err = r.client2.Set(path, addr, uint64(service.TTL))
+		_, err = r.client.Put(ctx, key, value)
 	}
 
 	if err != nil {
@@ -104,17 +73,12 @@ func (r *EtcdAdapter) Register(service *bridge.Service) error {
 }
 
 func (r *EtcdAdapter) Deregister(service *bridge.Service) error {
-	r.syncEtcdCluster()
+	key := r.path + "/" + service.Name + "/" + service.ID
 
-	path := r.path + "/" + service.Name + "/" + service.ID
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	var err error
-	if r.client != nil {
-		_, err = r.client.Delete(path, false)
-	} else {
-		_, err = r.client2.Delete(path, false)
-	}
-
+	_, err := r.client.Delete(ctx, key)
 	if err != nil {
 		log.Println("etcd: failed to deregister service:", err)
 	}

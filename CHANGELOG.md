@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.1.0](https://github.com/fayrus/registrator/releases/tag/v9.1.0) - 2026-06-04
+
+### Changed
+- etcd backend URI schemes renamed to match the actual API used:
+  - `etcd://` now maps to the modern gRPC v3 backend (previously `etcd2://`)
+  - `etcd-legacy://` now maps to the legacy HTTP v2 backend (previously `etcd://`)
+
+### Migration
+
+| Old URI | New URI | Notes |
+|---------|---------|-------|
+| `etcd2://host:2379` | `etcd://host:2379` | Modern backend, gRPC v3 — most users |
+| `etcd://host:2379` | `etcd-legacy://host:2379` | Legacy backend, HTTP v2 — requires `--enable-v2=true` |
+
+Closes #43.
+
 ## [v9.0.11](https://github.com/fayrus/registrator/releases/tag/v9.0.11) - 2026-06-03
 
 ### Fixed

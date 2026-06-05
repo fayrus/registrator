@@ -28,7 +28,7 @@ With this setup, a container named `web` will be resolvable at `web.service.loca
 
 ## TLS
 
-The `coredns://` backend supports the same TLS environment variables as `etcd2://`:
+The `coredns://` backend supports the same TLS environment variables as `etcd://`:
 
 | Variable | Description |
 |----------|-------------|

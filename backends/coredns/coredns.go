@@ -2,17 +2,15 @@ package coredns
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/fayrus/registrator/internal/bridge"
+	"github.com/fayrus/registrator/internal/etcdtls"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -23,65 +21,22 @@ func init() {
 type Factory struct{}
 
 func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
-	endpoints := []string{}
-	if uri.Host != "" {
-		endpoints = append(endpoints, uri.Host)
-	}
-	if env := os.Getenv("ETCD_ENDPOINTS"); env != "" {
-		for _, ep := range strings.Split(env, ",") {
-			if ep = strings.TrimSpace(ep); ep != "" {
-				endpoints = append(endpoints, ep)
-			}
-		}
-	}
-	if len(endpoints) == 0 {
-		endpoints = []string{"127.0.0.1:2379"}
-	}
-
-	// DNS zone from query param, default to "local"
 	zone := uri.Query().Get("zone")
 	if zone == "" {
 		zone = "local"
 	}
 
-	// etcd key prefix from path, default to "/skydns"
 	prefix := uri.Path
 	if prefix == "" || prefix == "/" {
 		prefix = "/skydns"
 	}
 
-	cfg := clientv3.Config{
-		Endpoints:   endpoints,
-		DialTimeout: 5 * time.Second,
-	}
-
-	certFile := os.Getenv("ETCD_CERT_FILE")
-	keyFile := os.Getenv("ETCD_KEY_FILE")
-	caFile := os.Getenv("ETCD_CA_CERT_FILE")
-	if certFile != "" && keyFile != "" {
-		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-		if err != nil {
-			return nil, fmt.Errorf("coredns: failed to load TLS keypair: %w", err)
-		}
-		tlsCfg := &tls.Config{Certificates: []tls.Certificate{cert}}
-		if caFile != "" {
-			ca, err := os.ReadFile(caFile)
-			if err != nil {
-				return nil, fmt.Errorf("coredns: failed to read CA cert: %w", err)
-			}
-			pool := x509.NewCertPool()
-			pool.AppendCertsFromPEM(ca)
-			tlsCfg.RootCAs = pool
-		}
-		cfg.TLS = tlsCfg
-	}
-
-	client, err := clientv3.New(cfg)
+	client, err := etcdtls.NewClient(uri.Host)
 	if err != nil {
-		return nil, fmt.Errorf("coredns: failed to connect to etcd: %w", err)
+		return nil, fmt.Errorf("coredns: %w", err)
 	}
 
-	log.Printf("coredns: using zone=%s prefix=%s endpoints=%v", zone, prefix, endpoints)
+	log.Printf("coredns: using zone=%s prefix=%s", zone, prefix)
 	return &CoreDNSAdapter{client: client, prefix: prefix, zone: zone}, nil
 }
 
