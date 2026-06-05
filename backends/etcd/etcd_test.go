@@ -1,4 +1,4 @@
-package etcd2
+package etcd
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-type fakeEtcd2Client struct {
+type fakeEtcdClient struct {
 	putErr    error
 	delErr    error
 	grantErr  error
@@ -19,18 +19,18 @@ type fakeEtcd2Client struct {
 	lastTTL   int64
 }
 
-func (f *fakeEtcd2Client) Put(ctx context.Context, key, val string, opts ...clientv3.OpOption) (*clientv3.PutResponse, error) {
+func (f *fakeEtcdClient) Put(ctx context.Context, key, val string, opts ...clientv3.OpOption) (*clientv3.PutResponse, error) {
 	f.lastKey = key
 	f.lastValue = val
 	return nil, f.putErr
 }
 
-func (f *fakeEtcd2Client) Delete(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.DeleteResponse, error) {
+func (f *fakeEtcdClient) Delete(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.DeleteResponse, error) {
 	f.lastKey = key
 	return nil, f.delErr
 }
 
-func (f *fakeEtcd2Client) Grant(ctx context.Context, ttl int64) (*clientv3.LeaseGrantResponse, error) {
+func (f *fakeEtcdClient) Grant(ctx context.Context, ttl int64) (*clientv3.LeaseGrantResponse, error) {
 	f.lastTTL = ttl
 	if f.grantErr != nil {
 		return nil, f.grantErr
@@ -38,11 +38,11 @@ func (f *fakeEtcd2Client) Grant(ctx context.Context, ttl int64) (*clientv3.Lease
 	return &clientv3.LeaseGrantResponse{ID: 1}, nil
 }
 
-func (f *fakeEtcd2Client) Status(ctx context.Context, endpoint string) (*clientv3.StatusResponse, error) {
+func (f *fakeEtcdClient) Status(ctx context.Context, endpoint string) (*clientv3.StatusResponse, error) {
 	return nil, f.pingErr
 }
 
-func (f *fakeEtcd2Client) Endpoints() []string {
+func (f *fakeEtcdClient) Endpoints() []string {
 	return []string{"127.0.0.1:2379"}
 }
 
@@ -55,12 +55,12 @@ func testService() *bridge.Service {
 	}
 }
 
-func adapter(c etcd2Client) *Etcd2Adapter {
-	return &Etcd2Adapter{client: c, path: "/services"}
+func adapter(c etcdClient) *EtcdAdapter {
+	return &EtcdAdapter{client: c, path: "/services"}
 }
 
 func TestRegister_BuildsCorrectKeyAndValue(t *testing.T) {
-	c := &fakeEtcd2Client{}
+	c := &fakeEtcdClient{}
 	if err := adapter(c).Register(testService()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -73,14 +73,14 @@ func TestRegister_BuildsCorrectKeyAndValue(t *testing.T) {
 }
 
 func TestRegister_ReturnsErrorOnPutFail(t *testing.T) {
-	c := &fakeEtcd2Client{putErr: errors.New("etcd: connection refused")}
+	c := &fakeEtcdClient{putErr: errors.New("etcd: connection refused")}
 	if err := adapter(c).Register(testService()); err == nil {
 		t.Fatal("expected error, got nil")
 	}
 }
 
 func TestRegister_UsesLeaseWhenTTLSet(t *testing.T) {
-	c := &fakeEtcd2Client{}
+	c := &fakeEtcdClient{}
 	svc := testService()
 	svc.TTL = 30
 	if err := adapter(c).Register(svc); err != nil {
@@ -92,7 +92,7 @@ func TestRegister_UsesLeaseWhenTTLSet(t *testing.T) {
 }
 
 func TestRegister_ReturnsErrorOnGrantFail(t *testing.T) {
-	c := &fakeEtcd2Client{grantErr: errors.New("etcd: lease error")}
+	c := &fakeEtcdClient{grantErr: errors.New("etcd: lease error")}
 	svc := testService()
 	svc.TTL = 30
 	if err := adapter(c).Register(svc); err == nil {
@@ -101,7 +101,7 @@ func TestRegister_ReturnsErrorOnGrantFail(t *testing.T) {
 }
 
 func TestDeregister_BuildsCorrectKey(t *testing.T) {
-	c := &fakeEtcd2Client{}
+	c := &fakeEtcdClient{}
 	if err := adapter(c).Deregister(testService()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -111,8 +111,28 @@ func TestDeregister_BuildsCorrectKey(t *testing.T) {
 }
 
 func TestDeregister_ReturnsErrorOnDeleteFail(t *testing.T) {
-	c := &fakeEtcd2Client{delErr: errors.New("etcd: connection refused")}
+	c := &fakeEtcdClient{delErr: errors.New("etcd: connection refused")}
 	if err := adapter(c).Deregister(testService()); err == nil {
 		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestRefresh_DelegatesToRegister(t *testing.T) {
+	c := &fakeEtcdClient{}
+	if err := adapter(c).Refresh(testService()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.lastKey != "/services/web/web-1" {
+		t.Errorf("unexpected key: %s", c.lastKey)
+	}
+}
+
+func TestServices_ReturnsEmpty(t *testing.T) {
+	svcs, err := adapter(&fakeEtcdClient{}).Services()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(svcs) != 0 {
+		t.Errorf("expected empty slice, got %d services", len(svcs))
 	}
 }

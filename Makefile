@@ -1,9 +1,9 @@
-NAME=registrator
+NAME=development/registrator
 DEV_RUN_OPTS ?= consul:
 LINT_OUTPUT ?= golangci-lint.out
 
 local:
-	docker build -t $(NAME):local .
+	docker build --no-cache -t $(NAME):local .
 
 dev:
 	docker build -t $(NAME):dev .
