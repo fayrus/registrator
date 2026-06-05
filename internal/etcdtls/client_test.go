@@ -12,7 +12,7 @@ func TestNewClient_NoTLS(t *testing.T) {
 	if client == nil {
 		t.Fatal("expected non-nil client")
 	}
-	client.Close()
+	_ = client.Close()
 }
 
 func TestNewClient_DefaultEndpoint(t *testing.T) {
@@ -23,7 +23,7 @@ func TestNewClient_DefaultEndpoint(t *testing.T) {
 	if client == nil {
 		t.Fatal("expected non-nil client")
 	}
-	client.Close()
+	_ = client.Close()
 }
 
 func TestNewClient_ETCDEndpointsEnv(t *testing.T) {
@@ -35,7 +35,7 @@ func TestNewClient_ETCDEndpointsEnv(t *testing.T) {
 	if client == nil {
 		t.Fatal("expected non-nil client")
 	}
-	client.Close()
+	_ = client.Close()
 }
 
 func TestNewClient_TLSKeyPairError(t *testing.T) {

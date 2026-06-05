@@ -41,11 +41,11 @@ func writeTempCert(t *testing.T) (certFile, keyFile string) {
 
 	cf, _ := os.Create(certFile)
 	_ = pem.Encode(cf, &pem.Block{Type: "CERTIFICATE", Bytes: certDER})
-	cf.Close()
+	_ = cf.Close()
 
 	kf, _ := os.Create(keyFile)
 	_ = pem.Encode(kf, &pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
-	kf.Close()
+	_ = kf.Close()
 
 	return certFile, keyFile
 }
