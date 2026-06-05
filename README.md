@@ -34,14 +34,14 @@ In practice, this fork focuses on:
 
 - `consul://`
 - `consulkv://`
-- `etcd://` for legacy etcd v2 setups
-- `etcd2://` for etcd v3 deployments
+- `etcd://` for etcd v3 deployments (gRPC, recommended)
+- `etcd-legacy://` for legacy etcd v2 setups (HTTP API)
 - `zookeeper://`
 - `coredns://`
 
 Multi-architecture images are available for `linux/amd64` and `linux/arm64`.
 
-- `etcd2://` is the recommended etcd backend for modern deployments.
+- `etcd://` is the recommended etcd backend for modern deployments.
 - The old SkyDNS2 backend was removed in `v8.0.4`. Use `coredns://` instead.
 - For `linux/arm/v7`, `linux/arm/v6`, and `linux/386`, use [`v8.0.1`](https://github.com/fayrus/registrator/releases/tag/v8.0.1).
 
