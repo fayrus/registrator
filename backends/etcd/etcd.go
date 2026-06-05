@@ -2,8 +2,6 @@ package etcd
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"log"
 	"net"
@@ -14,6 +12,7 @@ import (
 	"time"
 
 	"github.com/fayrus/registrator/internal/bridge"
+	"github.com/fayrus/registrator/internal/etcdtls"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -48,25 +47,15 @@ func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
 		DialTimeout: 5 * time.Second,
 	}
 
-	certFile := os.Getenv("ETCD_CERT_FILE")
-	keyFile := os.Getenv("ETCD_KEY_FILE")
-	caFile := os.Getenv("ETCD_CA_CERT_FILE")
-
-	if certFile != "" && keyFile != "" {
-		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-		if err != nil {
-			return nil, fmt.Errorf("etcd: failed to load TLS keypair: %w", err)
-		}
-		tlsCfg := &tls.Config{Certificates: []tls.Certificate{cert}}
-		if caFile != "" {
-			ca, err := os.ReadFile(caFile)
-			if err != nil {
-				return nil, fmt.Errorf("etcd: failed to read CA cert: %w", err)
-			}
-			pool := x509.NewCertPool()
-			pool.AppendCertsFromPEM(ca)
-			tlsCfg.RootCAs = pool
-		}
+	tlsCfg, err := etcdtls.Build(
+		os.Getenv("ETCD_CERT_FILE"),
+		os.Getenv("ETCD_KEY_FILE"),
+		os.Getenv("ETCD_CA_CERT_FILE"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("etcd: %w", err)
+	}
+	if tlsCfg != nil {
 		cfg.TLS = tlsCfg
 	}
 
