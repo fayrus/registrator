@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.1.1](https://github.com/fayrus/registrator/releases/tag/v9.1.1) - 2026-06-05
+
+### Changed
+- Reduced cognitive complexity across all SonarCloud-flagged methods to ≤ 15:
+  - `internal/bridge/bridge.go`: `Sync`, `add`, `newService`, `executeTagTemplate`, `removeDanglingServices`
+  - `internal/bridge/util.go`: `serviceMetaData`
+  - `backends/consul/consul.go`: `buildCheck`
+  - `registrator.go`: `main`
+- Defined `logIgnored` constant to replace duplicated `"ignored:"` literal
+- Quoted `$TARGETOS`, `$TARGETARCH`, `$TARGETVARIANT` variables in Dockerfile `RUN` instruction
+
 ## [v9.1.0](https://github.com/fayrus/registrator/releases/tag/v9.1.0) - 2026-06-04
 
 ### Changed
