@@ -59,6 +59,85 @@ func connectWithRetry(docker *dockerapi.Client, adapterURI string, config bridge
 	return nil, errors.New("unreachable retry state")
 }
 
+func validateArgs() error {
+	if flag.NArg() == 0 {
+		fmt.Fprint(os.Stderr, "Missing required argument for registry URI.\n\n")
+		flag.Usage()
+		os.Exit(2)
+	}
+	if flag.NArg() > 1 {
+		fmt.Fprintln(os.Stderr, "Extra unparsed arguments:")
+		fmt.Fprintln(os.Stderr, " ", strings.Join(flag.Args()[1:], " "))
+		fmt.Fprint(os.Stderr, "Options should come before the registry URI argument.\n\n")
+		flag.Usage()
+		os.Exit(2)
+	}
+	return nil
+}
+
+func validateFlags() error {
+	if (*refreshTtl == 0 && *refreshInterval > 0) || (*refreshTtl > 0 && *refreshInterval == 0) {
+		return errors.New("-ttl and -ttl-refresh must be specified together or not at all")
+	}
+	if *refreshTtl > 0 && *refreshTtl <= *refreshInterval {
+		return errors.New("-ttl must be greater than -ttl-refresh")
+	}
+	if *retryInterval <= 0 {
+		return errors.New("-retry-interval must be greater than 0")
+	}
+	if *deregister != "always" && *deregister != "on-success" {
+		return errors.New("-deregister must be \"always\" or \"on-success\"")
+	}
+	return nil
+}
+
+func setupDockerHost() {
+	if os.Getenv("DOCKER_HOST") != "" {
+		return
+	}
+	if runtime.GOOS != "windows" {
+		_ = os.Setenv("DOCKER_HOST", "unix:///tmp/docker.sock")
+	} else {
+		_ = os.Setenv("DOCKER_HOST", "npipe:////./pipe/docker_engine")
+	}
+}
+
+func startRefreshTicker(b *bridge.Bridge, interval int, quit chan struct{}) {
+	if interval <= 0 {
+		return
+	}
+	ticker := time.NewTicker(time.Duration(interval) * time.Second)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				b.Refresh()
+			case <-quit:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+}
+
+func startResyncTicker(b *bridge.Bridge, interval int, quit chan struct{}) {
+	if interval <= 0 {
+		return
+	}
+	ticker := time.NewTicker(time.Duration(interval) * time.Second)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				b.Sync(true)
+			case <-quit:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+}
+
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == "--version" {
 		fmt.Println(Version)
@@ -73,48 +152,17 @@ func main() {
 	}
 
 	flag.Parse()
-
-	if flag.NArg() != 1 {
-		if flag.NArg() == 0 {
-			fmt.Fprint(os.Stderr, "Missing required argument for registry URI.\n\n")
-		} else {
-			fmt.Fprintln(os.Stderr, "Extra unparsed arguments:")
-			fmt.Fprintln(os.Stderr, " ", strings.Join(flag.Args()[1:], " "))
-			fmt.Fprint(os.Stderr, "Options should come before the registry URI argument.\n\n")
-		}
-		flag.Usage()
-		os.Exit(2)
-	}
+	assert(validateArgs())
 
 	if *hostIp != "" {
 		log.Println("Forcing host IP to", *hostIp)
 	}
 
-	if (*refreshTtl == 0 && *refreshInterval > 0) || (*refreshTtl > 0 && *refreshInterval == 0) {
-		assert(errors.New("-ttl and -ttl-refresh must be specified together or not at all"))
-	} else if *refreshTtl > 0 && *refreshTtl <= *refreshInterval {
-		assert(errors.New("-ttl must be greater than -ttl-refresh"))
-	}
-
-	if *retryInterval <= 0 {
-		assert(errors.New("-retry-interval must be greater than 0"))
-	}
-
-	dockerHost := os.Getenv("DOCKER_HOST")
-	if dockerHost == "" {
-		if runtime.GOOS != "windows" {
-			_ = os.Setenv("DOCKER_HOST", "unix:///tmp/docker.sock")
-		} else {
-			_ = os.Setenv("DOCKER_HOST", "npipe:////./pipe/docker_engine")
-		}
-	}
+	assert(validateFlags())
+	setupDockerHost()
 
 	docker, err := dockerapi.NewClientFromEnv()
 	assert(err)
-
-	if *deregister != "always" && *deregister != "on-success" {
-		assert(errors.New("-deregister must be \"always\" or \"on-success\""))
-	}
 
 	b, err := connectWithRetry(docker, flag.Arg(0), bridge.Config{
 		HostIp:          *hostIp,
@@ -138,38 +186,8 @@ func main() {
 	b.Sync(false)
 
 	quit := make(chan struct{})
-
-	// Start the TTL refresh timer
-	if *refreshInterval > 0 {
-		ticker := time.NewTicker(time.Duration(*refreshInterval) * time.Second)
-		go func() {
-			for {
-				select {
-				case <-ticker.C:
-					b.Refresh()
-				case <-quit:
-					ticker.Stop()
-					return
-				}
-			}
-		}()
-	}
-
-	// Start the resync timer if enabled
-	if *resyncInterval > 0 {
-		resyncTicker := time.NewTicker(time.Duration(*resyncInterval) * time.Second)
-		go func() {
-			for {
-				select {
-				case <-resyncTicker.C:
-					b.Sync(true)
-				case <-quit:
-					resyncTicker.Stop()
-					return
-				}
-			}
-		}()
-	}
+	startRefreshTicker(b, *refreshInterval, quit)
+	startResyncTicker(b, *resyncInterval, quit)
 
 	// Process Docker events
 	for msg := range events {

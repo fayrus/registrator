@@ -4,7 +4,7 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 WORKDIR /go/src/github.com/fayrus/registrator/
 COPY . .
-RUN GOARM=${TARGETVARIANT#v} CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
+RUN GOARM="${TARGETVARIANT#v}" CGO_ENABLED=0 GOOS="$TARGETOS" GOARCH="$TARGETARCH" go build \
 	-a -installsuffix cgo \
 	-ldflags "-X main.Version=$(cat VERSION)" \
 	-o bin/registrator \

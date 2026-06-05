@@ -73,42 +73,45 @@ func serviceMetaData(config *dockerapi.Config, port, portType string) (map[strin
 	metadata := make(map[string]string)
 	metadataFromPort := make(map[string]bool)
 	for _, kv := range meta {
-		kvp := strings.SplitN(kv, "=", 2)
-		if strings.HasPrefix(kvp[0], "SERVICE_") && len(kvp) > 1 {
-			key := strings.ToLower(strings.TrimPrefix(kvp[0], "SERVICE_"))
-			if metadataFromPort[key] {
-				continue
-			}
-			portkey := strings.SplitN(key, "_", 2)
-			_, err := strconv.Atoi(portkey[0])
-			isExactPort := err == nil
-			isRangePort := !isExactPort && strings.Contains(portkey[0], "-") && portInRange(portkey[0], port)
-
-			if (isExactPort || isRangePort) && len(portkey) > 1 {
-				if isExactPort && portkey[0] != port {
-					continue
-				}
-				if isRangePort && !portInRange(portkey[0], port) {
-					continue
-				}
-				// Check for SERVICE_<port>_<protocol>_<key> format
-				protokey := strings.SplitN(portkey[1], "_", 2)
-				if knownProtocols[protokey[0]] && len(protokey) > 1 {
-					if protokey[0] != portType {
-						continue
-					}
-					metadata[protokey[1]] = kvp[1]
-					metadataFromPort[protokey[1]] = true
-				} else {
-					metadata[portkey[1]] = kvp[1]
-					metadataFromPort[portkey[1]] = true
-				}
-			} else if !isExactPort && !isRangePort {
-				metadata[key] = kvp[1]
-			}
-		}
+		applyMetaEntry(kv, port, portType, metadata, metadataFromPort)
 	}
 	return metadata, metadataFromPort
+}
+
+// applyMetaEntry parses a single SERVICE_* env/label entry and writes to metadata.
+func applyMetaEntry(kv, port, portType string, metadata map[string]string, metadataFromPort map[string]bool) {
+	kvp := strings.SplitN(kv, "=", 2)
+	if !strings.HasPrefix(kvp[0], "SERVICE_") || len(kvp) < 2 {
+		return
+	}
+	key := strings.ToLower(strings.TrimPrefix(kvp[0], "SERVICE_"))
+	if metadataFromPort[key] {
+		return
+	}
+	portkey := strings.SplitN(key, "_", 2)
+	_, err := strconv.Atoi(portkey[0])
+	isExactPort := err == nil
+	isRangePort := !isExactPort && strings.Contains(portkey[0], "-") && portInRange(portkey[0], port)
+
+	if isExactPort || isRangePort {
+		if len(portkey) < 2 || (isExactPort && portkey[0] != port) || (isRangePort && !portInRange(portkey[0], port)) {
+			return
+		}
+		// Check for SERVICE_<port>_<protocol>_<key> format
+		protokey := strings.SplitN(portkey[1], "_", 2)
+		if knownProtocols[protokey[0]] && len(protokey) > 1 {
+			if protokey[0] != portType {
+				return
+			}
+			metadata[protokey[1]] = kvp[1]
+			metadataFromPort[protokey[1]] = true
+		} else {
+			metadata[portkey[1]] = kvp[1]
+			metadataFromPort[portkey[1]] = true
+		}
+	} else {
+		metadata[key] = kvp[1]
+	}
 }
 
 func servicePort(container *dockerapi.Container, port dockerapi.Port, published []dockerapi.PortBinding) ServicePort {

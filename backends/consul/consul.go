@@ -98,40 +98,64 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 	if status := service.Attrs["check_initial_status"]; status != "" {
 		check.Status = status
 	}
+	if !r.applyCheckType(service, check) {
+		return nil
+	}
+	applyCheckCommonSettings(service, check)
+	return check
+}
+
+// applyCheckType sets the check type on check based on service attributes.
+// Returns false if no valid check type is found or the configuration is invalid.
+func (r *ConsulAdapter) applyCheckType(service *bridge.Service, check *consulapi.AgentServiceCheck) bool {
 	if path := service.Attrs["check_http"]; path != "" {
 		check.HTTP = fmt.Sprintf("http://%s:%d%s", service.IP, service.Port, path)
 		if method := service.Attrs["check_http_method"]; method != "" {
 			check.Method = method
 		}
-	} else if path := service.Attrs["check_https"]; path != "" {
+		return true
+	}
+	if path := service.Attrs["check_https"]; path != "" {
 		check.HTTP = fmt.Sprintf("https://%s:%d%s", service.IP, service.Port, path)
 		if method := service.Attrs["check_https_method"]; method != "" {
 			check.Method = method
 		}
-	} else if cmd := service.Attrs["check_cmd"]; cmd != "" {
+		return true
+	}
+	if cmd := service.Attrs["check_cmd"]; cmd != "" {
 		check.Args = []string{"check-cmd", service.Origin.ContainerID[:12], service.Origin.ExposedPort, cmd}
-	} else if script := service.Attrs["check_script"]; script != "" {
+		return true
+	}
+	if script := service.Attrs["check_script"]; script != "" {
 		args, err := shlex.Split(r.interpolateService(script, service))
 		if err != nil {
 			log.Printf("consul: failed to parse check_script %q: %v", script, err)
-			return nil
+			return false
 		}
 		if len(args) == 0 {
-			return nil
+			return false
 		}
 		check.Args = args
-	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
-		check.TTL = ttl
-	} else if service.Attrs["check_tcp"] != "" {
-		check.TCP = fmt.Sprintf("%s:%d", service.IP, service.Port)
-	} else if service.Attrs["check_grpc"] != "" {
-		check.GRPC = fmt.Sprintf("%s:%d", service.IP, service.Port)
-		if service.Attrs["check_grpc_use_tls"] != "" {
-			check.GRPCUseTLS = true
-		}
-	} else {
-		return nil
+		return true
 	}
+	if ttl := service.Attrs["check_ttl"]; ttl != "" {
+		check.TTL = ttl
+		return true
+	}
+	if service.Attrs["check_tcp"] != "" {
+		check.TCP = fmt.Sprintf("%s:%d", service.IP, service.Port)
+		return true
+	}
+	if service.Attrs["check_grpc"] != "" {
+		check.GRPC = fmt.Sprintf("%s:%d", service.IP, service.Port)
+		check.GRPCUseTLS = service.Attrs["check_grpc_use_tls"] != ""
+		return true
+	}
+	return false
+}
+
+// applyCheckCommonSettings sets interval, timeout, TLS, and deregister settings on check.
+func applyCheckCommonSettings(service *bridge.Service, check *consulapi.AgentServiceCheck) {
 	if len(check.Args) != 0 || check.HTTP != "" || check.TCP != "" || check.GRPC != "" {
 		if interval := service.Attrs["check_interval"]; interval != "" {
 			check.Interval = interval
@@ -148,7 +172,6 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 	if deregisterAfter := service.Attrs["check_deregister_after"]; deregisterAfter != "" {
 		check.DeregisterCriticalServiceAfter = deregisterAfter
 	}
-	return check
 }
 
 func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
