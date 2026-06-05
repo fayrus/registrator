@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -22,56 +21,22 @@ func init() {
 type Factory struct{}
 
 func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
-	endpoints := []string{}
-	if uri.Host != "" {
-		endpoints = append(endpoints, uri.Host)
-	}
-	if env := os.Getenv("ETCD_ENDPOINTS"); env != "" {
-		for _, ep := range strings.Split(env, ",") {
-			if ep = strings.TrimSpace(ep); ep != "" {
-				endpoints = append(endpoints, ep)
-			}
-		}
-	}
-	if len(endpoints) == 0 {
-		endpoints = []string{"127.0.0.1:2379"}
-	}
-
-	// DNS zone from query param, default to "local"
 	zone := uri.Query().Get("zone")
 	if zone == "" {
 		zone = "local"
 	}
 
-	// etcd key prefix from path, default to "/skydns"
 	prefix := uri.Path
 	if prefix == "" || prefix == "/" {
 		prefix = "/skydns"
 	}
 
-	cfg := clientv3.Config{
-		Endpoints:   endpoints,
-		DialTimeout: 5 * time.Second,
-	}
-
-	tlsCfg, err := etcdtls.Build(
-		os.Getenv("ETCD_CERT_FILE"),
-		os.Getenv("ETCD_KEY_FILE"),
-		os.Getenv("ETCD_CA_CERT_FILE"),
-	)
+	client, err := etcdtls.NewClient(uri.Host)
 	if err != nil {
 		return nil, fmt.Errorf("coredns: %w", err)
 	}
-	if tlsCfg != nil {
-		cfg.TLS = tlsCfg
-	}
 
-	client, err := clientv3.New(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("coredns: failed to connect to etcd: %w", err)
-	}
-
-	log.Printf("coredns: using zone=%s prefix=%s endpoints=%v", zone, prefix, endpoints)
+	log.Printf("coredns: using zone=%s prefix=%s", zone, prefix)
 	return &CoreDNSAdapter{client: client, prefix: prefix, zone: zone}, nil
 }
 

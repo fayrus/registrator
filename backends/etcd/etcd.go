@@ -6,9 +6,7 @@ import (
 	"log"
 	"net"
 	"net/url"
-	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/fayrus/registrator/internal/bridge"
@@ -23,47 +21,10 @@ func init() {
 type Factory struct{}
 
 func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
-	endpoints := []string{}
-
-	if uri.Host != "" {
-		endpoints = append(endpoints, uri.Host)
-	}
-
-	// Support additional endpoints via ETCD_ENDPOINTS env var (comma-separated)
-	if env := os.Getenv("ETCD_ENDPOINTS"); env != "" {
-		for _, ep := range strings.Split(env, ",") {
-			if ep = strings.TrimSpace(ep); ep != "" {
-				endpoints = append(endpoints, ep)
-			}
-		}
-	}
-
-	if len(endpoints) == 0 {
-		endpoints = []string{"127.0.0.1:2379"}
-	}
-
-	cfg := clientv3.Config{
-		Endpoints:   endpoints,
-		DialTimeout: 5 * time.Second,
-	}
-
-	tlsCfg, err := etcdtls.Build(
-		os.Getenv("ETCD_CERT_FILE"),
-		os.Getenv("ETCD_KEY_FILE"),
-		os.Getenv("ETCD_CA_CERT_FILE"),
-	)
+	client, err := etcdtls.NewClient(uri.Host)
 	if err != nil {
 		return nil, fmt.Errorf("etcd: %w", err)
 	}
-	if tlsCfg != nil {
-		cfg.TLS = tlsCfg
-	}
-
-	client, err := clientv3.New(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("etcd: failed to connect: %w", err)
-	}
-
 	return &EtcdAdapter{client: client, path: uri.Path}, nil
 }
 

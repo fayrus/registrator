@@ -171,15 +171,3 @@ func TestNew_TLSKeyPairError(t *testing.T) {
 		t.Fatal("expected error for missing TLS files, got nil")
 	}
 }
-
-func TestNew_ETCDEndpointsEnv(t *testing.T) {
-	t.Setenv("ETCD_ENDPOINTS", "localhost:12380, localhost:12381")
-	uri, _ := url.Parse("etcd://localhost:12379/services")
-	a, err := (&Factory{}).New(uri)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if a == nil {
-		t.Fatal("expected adapter, got nil")
-	}
-}
