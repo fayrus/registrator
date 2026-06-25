@@ -1,6 +1,7 @@
 package zookeeper
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -9,12 +10,14 @@ import (
 )
 
 type fakeZkClient struct {
-	exists   map[string]bool
-	existErr map[string]error
+	exists    map[string]bool
+	existErr  map[string]error
 	createErr map[string]error
 	deleteErr map[string]error
 	children  map[string][]string
 	childErr  map[string]error
+	data      map[string][]byte
+	getErr    map[string]error
 }
 
 func newFakeClient() *fakeZkClient {
@@ -25,6 +28,8 @@ func newFakeClient() *fakeZkClient {
 		deleteErr: make(map[string]error),
 		children:  make(map[string][]string),
 		childErr:  make(map[string]error),
+		data:      make(map[string][]byte),
+		getErr:    make(map[string]error),
 	}
 }
 
@@ -37,6 +42,7 @@ func (f *fakeZkClient) Create(path string, data []byte, flags int32, acl []zk.AC
 		return "", err
 	}
 	f.exists[path] = true
+	f.data[path] = data
 	return path, nil
 }
 
@@ -52,8 +58,13 @@ func (f *fakeZkClient) Children(path string) ([]string, *zk.Stat, error) {
 	return f.children[path], nil, f.childErr[path]
 }
 
+func (f *fakeZkClient) Get(path string) ([]byte, *zk.Stat, error) {
+	return f.data[path], nil, f.getErr[path]
+}
+
 func testService() *bridge.Service {
 	return &bridge.Service{
+		ID:   "host:web:8080",
 		Name: "web",
 		IP:   "10.0.0.1",
 		Port: 8080,
@@ -80,6 +91,13 @@ func TestRegister_CreatesBasePathAndServiceNode(t *testing.T) {
 	}
 	if !c.exists["/services/web/10.0.0.1:8080"] {
 		t.Error("service node not created")
+	}
+	var body ZnodeBody
+	if err := json.Unmarshal(c.data["/services/web/10.0.0.1:8080"], &body); err != nil {
+		t.Fatalf("unexpected payload error: %v", err)
+	}
+	if body.ID != "host:web:8080" {
+		t.Errorf("unexpected service ID in payload: %s", body.ID)
 	}
 }
 
@@ -171,6 +189,85 @@ func TestPing_ReturnsErrorOnFail(t *testing.T) {
 	c.existErr["/"] = errors.New("zk: connection closed")
 
 	if err := adapter(c).Ping(); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestServices_ListsRegisteredServices(t *testing.T) {
+	c := newFakeClient()
+	c.children["/services"] = []string{"web", "api"}
+	c.children["/services/web"] = []string{"10.0.0.1:8080"}
+	c.children["/services/api"] = []string{"10.0.0.2:9000"}
+	c.data["/services/web/10.0.0.1:8080"] = []byte(`{"ID":"host:web:8080","Name":"web","IP":"10.0.0.1","PublicPort":8080,"Tags":["blue"],"Attrs":{"version":"1"}}`)
+	c.data["/services/api/10.0.0.2:9000"] = []byte(`{"ID":"host:api:9000","Name":"api","IP":"10.0.0.2","PublicPort":9000}`)
+
+	svcs, err := adapter(c).Services()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(svcs) != 2 {
+		t.Fatalf("expected 2 services, got %d", len(svcs))
+	}
+	if svcs[0].ID != "host:web:8080" || svcs[0].Name != "web" || svcs[0].IP != "10.0.0.1" || svcs[0].Port != 8080 {
+		t.Errorf("unexpected first service: %+v", svcs[0])
+	}
+	if len(svcs[0].Tags) != 1 || svcs[0].Tags[0] != "blue" {
+		t.Errorf("unexpected tags: %+v", svcs[0].Tags)
+	}
+	if svcs[0].Attrs["version"] != "1" {
+		t.Errorf("unexpected attrs: %+v", svcs[0].Attrs)
+	}
+	if svcs[1].ID != "host:api:9000" || svcs[1].Name != "api" || svcs[1].IP != "10.0.0.2" || svcs[1].Port != 9000 {
+		t.Errorf("unexpected second service: %+v", svcs[1])
+	}
+}
+
+func TestServices_SkipsLegacyAndMalformedNodes(t *testing.T) {
+	c := newFakeClient()
+	c.children["/services"] = []string{"web"}
+	c.children["/services/web"] = []string{"10.0.0.1:8080", "10.0.0.2:8080", "10.0.0.3:8080"}
+	c.data["/services/web/10.0.0.1:8080"] = []byte(`{"ID":"host:web:8080","Name":"web","IP":"10.0.0.1","PublicPort":8080}`)
+	c.data["/services/web/10.0.0.2:8080"] = []byte(`{"Name":"web","IP":"10.0.0.2","PublicPort":8080}`)
+	c.data["/services/web/10.0.0.3:8080"] = []byte(`not-json`)
+
+	svcs, err := adapter(c).Services()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(svcs) != 1 {
+		t.Fatalf("expected 1 service, got %d", len(svcs))
+	}
+	if svcs[0].ID != "host:web:8080" {
+		t.Errorf("unexpected service: %+v", svcs[0])
+	}
+}
+
+func TestServices_ReturnsErrorOnBaseChildrenFail(t *testing.T) {
+	c := newFakeClient()
+	c.childErr["/services"] = errors.New("zk: connection closed")
+
+	if _, err := adapter(c).Services(); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestServices_ReturnsErrorOnServiceChildrenFail(t *testing.T) {
+	c := newFakeClient()
+	c.children["/services"] = []string{"web"}
+	c.childErr["/services/web"] = errors.New("zk: connection closed")
+
+	if _, err := adapter(c).Services(); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestServices_ReturnsErrorOnGetFail(t *testing.T) {
+	c := newFakeClient()
+	c.children["/services"] = []string{"web"}
+	c.children["/services/web"] = []string{"10.0.0.1:8080"}
+	c.getErr["/services/web/10.0.0.1:8080"] = errors.New("zk: connection closed")
+
+	if _, err := adapter(c).Services(); err == nil {
 		t.Fatal("expected error, got nil")
 	}
 }

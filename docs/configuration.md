@@ -32,7 +32,7 @@ The `-cleanup` flag removes dangling registry entries that no longer correspond 
 | `etcd://` | Supported | Lists keys under the configured etcd v3 prefix |
 | `etcd-legacy://` | Supported | Lists keys recursively through the legacy etcd API |
 | `coredns://` | Not currently supported | SkyDNS keys do not preserve the original Registrator service ID safely |
-| `zookeeper://` | Not currently supported | Znode paths do not preserve the original Registrator service ID safely |
+| `zookeeper://` | Supported | Lists znodes that include the Registrator service ID in their payload |
 
 ## Service variables
 

@@ -26,6 +26,12 @@ docker run -d \
 
 With this setup, a container named `web` will be resolvable at `web.service.local`.
 
+## Cleanup
+
+The `coredns://` backend does not currently support `-cleanup`.
+
+CoreDNS records are stored in SkyDNS format, and the backend sanitizes Registrator service IDs so they can be used as DNS labels. Because the original service ID cannot be reconstructed safely from those keys, cleanup ignores CoreDNS registrations.
+
 ## TLS
 
 The `coredns://` backend supports the same TLS environment variables as `etcd://`:
