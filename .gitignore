@@ -8,5 +8,4 @@ vendor
 # Files
 .*.md
 .*-resume
-.out
-
+*.out
