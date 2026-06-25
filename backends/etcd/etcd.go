@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/fayrus/registrator/internal/bridge"
@@ -29,6 +30,7 @@ func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
 }
 
 type etcdClient interface {
+	Get(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error)
 	Put(ctx context.Context, key, val string, opts ...clientv3.OpOption) (*clientv3.PutResponse, error)
 	Delete(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.DeleteResponse, error)
 	Grant(ctx context.Context, ttl int64) (*clientv3.LeaseGrantResponse, error)
@@ -90,5 +92,48 @@ func (r *EtcdAdapter) Refresh(service *bridge.Service) error {
 }
 
 func (r *EtcdAdapter) Services() ([]*bridge.Service, error) {
-	return []*bridge.Service{}, nil
+	prefix := r.servicePrefix()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	res, err := r.client.Get(ctx, prefix, clientv3.WithPrefix())
+	if err != nil {
+		return []*bridge.Service{}, err
+	}
+	services := make([]*bridge.Service, 0, len(res.Kvs))
+	for _, kv := range res.Kvs {
+		service, ok := serviceFromKV(prefix, string(kv.Key), string(kv.Value))
+		if ok {
+			services = append(services, service)
+		}
+	}
+	return services, nil
+}
+
+func (r *EtcdAdapter) servicePrefix() string {
+	return r.path + "/"
+}
+
+func serviceFromKV(prefix, key, value string) (*bridge.Service, bool) {
+	if !strings.HasPrefix(key, prefix) {
+		return nil, false
+	}
+	relativeKey := strings.TrimPrefix(key, prefix)
+	keyParts := strings.SplitN(relativeKey, "/", 2)
+	if len(keyParts) != 2 || keyParts[0] == "" || keyParts[1] == "" {
+		return nil, false
+	}
+	host, portText, err := net.SplitHostPort(value)
+	if err != nil {
+		return nil, false
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil {
+		return nil, false
+	}
+	return &bridge.Service{
+		Name: keyParts[0],
+		ID:   keyParts[1],
+		IP:   host,
+		Port: port,
+	}, true
 }

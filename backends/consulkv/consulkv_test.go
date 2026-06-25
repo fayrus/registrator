@@ -10,10 +10,13 @@ import (
 )
 
 type fakeKV struct {
-	putErr  error
-	delErr  error
-	lastKey string
-	lastVal string
+	putErr   error
+	delErr   error
+	listErr  error
+	pairs    consulapi.KVPairs
+	lastKey  string
+	lastVal  string
+	lastList string
 }
 
 func (f *fakeKV) Put(p *consulapi.KVPair, q *consulapi.WriteOptions) (*consulapi.WriteMeta, error) {
@@ -25,6 +28,11 @@ func (f *fakeKV) Put(p *consulapi.KVPair, q *consulapi.WriteOptions) (*consulapi
 func (f *fakeKV) Delete(key string, q *consulapi.WriteOptions) (*consulapi.WriteMeta, error) {
 	f.lastKey = key
 	return nil, f.delErr
+}
+
+func (f *fakeKV) List(prefix string, q *consulapi.QueryOptions) (consulapi.KVPairs, *consulapi.QueryMeta, error) {
+	f.lastList = prefix
+	return f.pairs, nil, f.listErr
 }
 
 func testSvc() *bridge.Service {
@@ -111,5 +119,54 @@ func TestNew_MalformedUnixURI(t *testing.T) {
 	_, err := new(Factory).New(uri)
 	if err == nil {
 		t.Fatal("expected error for malformed consulkv-unix URI, got nil")
+	}
+}
+
+func TestServices_ListsRegisteredServices(t *testing.T) {
+	kv := &fakeKV{pairs: consulapi.KVPairs{
+		{Key: "services/web/host:web:80", Value: []byte("10.0.0.1:8080")},
+		{Key: "services/api/host:api:9000", Value: []byte("[2001:db8::1]:9000")},
+	}}
+	services, err := adapter(kv).Services()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if kv.lastList != "services/" {
+		t.Errorf("unexpected list prefix: %s", kv.lastList)
+	}
+	if len(services) != 2 {
+		t.Fatalf("expected 2 services, got %d", len(services))
+	}
+	if services[0].Name != "web" || services[0].ID != "host:web:80" || services[0].IP != "10.0.0.1" || services[0].Port != 8080 {
+		t.Errorf("unexpected first service: %+v", services[0])
+	}
+	if services[1].Name != "api" || services[1].ID != "host:api:9000" || services[1].IP != "2001:db8::1" || services[1].Port != 9000 {
+		t.Errorf("unexpected second service: %+v", services[1])
+	}
+}
+
+func TestServices_SkipsMalformedEntries(t *testing.T) {
+	kv := &fakeKV{pairs: consulapi.KVPairs{
+		{Key: "services/web/host:web:80", Value: []byte("10.0.0.1:8080")},
+		{Key: "services/missing-id", Value: []byte("10.0.0.2:8080")},
+		{Key: "services/api/host:api:9000", Value: []byte("not-an-address")},
+		{Key: "services/db/host:db:5432", Value: []byte("10.0.0.3:not-a-port")},
+	}}
+	services, err := adapter(kv).Services()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(services) != 1 {
+		t.Fatalf("expected 1 service, got %d", len(services))
+	}
+	if services[0].Name != "web" {
+		t.Errorf("unexpected service: %+v", services[0])
+	}
+}
+
+func TestServices_ReturnsErrorOnListFail(t *testing.T) {
+	kv := &fakeKV{listErr: errors.New("consul: connection refused")}
+	if _, err := adapter(kv).Services(); err == nil {
+		t.Fatal("expected error, got nil")
 	}
 }

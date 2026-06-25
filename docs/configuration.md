@@ -21,6 +21,19 @@ Usage of /bin/registrator:
   -ttl-refresh=0:           Frequency with which service TTLs are refreshed
 ```
 
+## Cleanup support
+
+The `-cleanup` flag removes dangling registry entries that no longer correspond to running Docker containers. Cleanup requires backend support for listing existing registrations.
+
+| Backend | Cleanup support | Notes |
+|---------|-----------------|-------|
+| `consul://` | Supported | Lists services through the Consul agent API |
+| `consulkv://` | Supported | Lists keys under the configured KV path |
+| `etcd://` | Supported | Lists keys under the configured etcd v3 prefix |
+| `etcd-legacy://` | Not currently supported | Listing support for the legacy v2 API has not been implemented |
+| `coredns://` | Not currently supported | SkyDNS keys do not preserve the original Registrator service ID safely |
+| `zookeeper://` | Not currently supported | Znode paths do not preserve the original Registrator service ID safely |
+
 ## Service variables
 
 Registrator reads configuration from container environment variables prefixed with `SERVICE_`.

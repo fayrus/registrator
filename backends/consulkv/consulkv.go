@@ -21,6 +21,7 @@ func init() {
 type kvStore interface {
 	Put(p *consulapi.KVPair, q *consulapi.WriteOptions) (*consulapi.WriteMeta, error)
 	Delete(key string, q *consulapi.WriteOptions) (*consulapi.WriteMeta, error)
+	List(prefix string, q *consulapi.QueryOptions) (consulapi.KVPairs, *consulapi.QueryMeta, error)
 }
 
 type Factory struct{}
@@ -56,7 +57,7 @@ func (r *ConsulKVAdapter) Ping() error {
 }
 
 func (r *ConsulKVAdapter) Register(service *bridge.Service) error {
-	path := strings.TrimPrefix(r.path, "/") + "/" + service.Name + "/" + service.ID
+	path := r.servicePrefix() + service.Name + "/" + service.ID
 	port := strconv.Itoa(service.Port)
 	addr := net.JoinHostPort(service.IP, port)
 	_, err := r.kv.Put(&consulapi.KVPair{Key: path, Value: []byte(addr)}, nil)
@@ -67,7 +68,7 @@ func (r *ConsulKVAdapter) Register(service *bridge.Service) error {
 }
 
 func (r *ConsulKVAdapter) Deregister(service *bridge.Service) error {
-	path := strings.TrimPrefix(r.path, "/") + "/" + service.Name + "/" + service.ID
+	path := r.servicePrefix() + service.Name + "/" + service.ID
 	_, err := r.kv.Delete(path, nil)
 	if err != nil {
 		log.Println("consulkv: failed to deregister service:", err)
@@ -80,5 +81,46 @@ func (r *ConsulKVAdapter) Refresh(service *bridge.Service) error {
 }
 
 func (r *ConsulKVAdapter) Services() ([]*bridge.Service, error) {
-	return []*bridge.Service{}, nil
+	prefix := r.servicePrefix()
+	pairs, _, err := r.kv.List(prefix, nil)
+	if err != nil {
+		return []*bridge.Service{}, err
+	}
+	services := make([]*bridge.Service, 0, len(pairs))
+	for _, pair := range pairs {
+		service, ok := serviceFromKV(prefix, pair.Key, string(pair.Value))
+		if ok {
+			services = append(services, service)
+		}
+	}
+	return services, nil
+}
+
+func (r *ConsulKVAdapter) servicePrefix() string {
+	return strings.TrimPrefix(r.path, "/") + "/"
+}
+
+func serviceFromKV(prefix, key, value string) (*bridge.Service, bool) {
+	if !strings.HasPrefix(key, prefix) {
+		return nil, false
+	}
+	relativeKey := strings.TrimPrefix(key, prefix)
+	keyParts := strings.SplitN(relativeKey, "/", 2)
+	if len(keyParts) != 2 || keyParts[0] == "" || keyParts[1] == "" {
+		return nil, false
+	}
+	host, portText, err := net.SplitHostPort(value)
+	if err != nil {
+		return nil, false
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil {
+		return nil, false
+	}
+	return &bridge.Service{
+		Name: keyParts[0],
+		ID:   keyParts[1],
+		IP:   host,
+		Port: port,
+	}, true
 }

@@ -7,17 +7,26 @@ import (
 	"testing"
 
 	"github.com/fayrus/registrator/internal/bridge"
+	mvccpb "go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type fakeEtcdClient struct {
 	putErr    error
 	delErr    error
+	getErr    error
 	grantErr  error
 	pingErr   error
+	kvs       []*mvccpb.KeyValue
+	lastGet   string
 	lastKey   string
 	lastValue string
 	lastTTL   int64
+}
+
+func (f *fakeEtcdClient) Get(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error) {
+	f.lastGet = key
+	return &clientv3.GetResponse{Kvs: f.kvs}, f.getErr
 }
 
 func (f *fakeEtcdClient) Put(ctx context.Context, key, val string, opts ...clientv3.OpOption) (*clientv3.PutResponse, error) {
@@ -128,13 +137,52 @@ func TestRefresh_DelegatesToRegister(t *testing.T) {
 	}
 }
 
-func TestServices_ReturnsEmpty(t *testing.T) {
-	svcs, err := adapter(&fakeEtcdClient{}).Services()
+func TestServices_ListsRegisteredServices(t *testing.T) {
+	c := &fakeEtcdClient{kvs: []*mvccpb.KeyValue{
+		{Key: []byte("/services/web/host:web:80"), Value: []byte("10.0.0.1:8080")},
+		{Key: []byte("/services/api/host:api:9000"), Value: []byte("[2001:db8::1]:9000")},
+	}}
+	svcs, err := adapter(c).Services()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(svcs) != 0 {
-		t.Errorf("expected empty slice, got %d services", len(svcs))
+	if c.lastGet != "/services/" {
+		t.Errorf("unexpected get prefix: %s", c.lastGet)
+	}
+	if len(svcs) != 2 {
+		t.Fatalf("expected 2 services, got %d", len(svcs))
+	}
+	if svcs[0].Name != "web" || svcs[0].ID != "host:web:80" || svcs[0].IP != "10.0.0.1" || svcs[0].Port != 8080 {
+		t.Errorf("unexpected first service: %+v", svcs[0])
+	}
+	if svcs[1].Name != "api" || svcs[1].ID != "host:api:9000" || svcs[1].IP != "2001:db8::1" || svcs[1].Port != 9000 {
+		t.Errorf("unexpected second service: %+v", svcs[1])
+	}
+}
+
+func TestServices_SkipsMalformedEntries(t *testing.T) {
+	c := &fakeEtcdClient{kvs: []*mvccpb.KeyValue{
+		{Key: []byte("/services/web/host:web:80"), Value: []byte("10.0.0.1:8080")},
+		{Key: []byte("/services/missing-id"), Value: []byte("10.0.0.2:8080")},
+		{Key: []byte("/services/api/host:api:9000"), Value: []byte("not-an-address")},
+		{Key: []byte("/services/db/host:db:5432"), Value: []byte("10.0.0.3:not-a-port")},
+	}}
+	svcs, err := adapter(c).Services()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(svcs) != 1 {
+		t.Fatalf("expected 1 service, got %d", len(svcs))
+	}
+	if svcs[0].Name != "web" {
+		t.Errorf("unexpected service: %+v", svcs[0])
+	}
+}
+
+func TestServices_ReturnsErrorOnGetFail(t *testing.T) {
+	_, err := adapter(&fakeEtcdClient{getErr: errors.New("etcd: unavailable")}).Services()
+	if err == nil {
+		t.Fatal("expected error, got nil")
 	}
 }
 
