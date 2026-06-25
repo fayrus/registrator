@@ -56,7 +56,7 @@ Uses the etcd v2 HTTP API (`coreos/go-etcd`). Requires etcd ≤ 3.5.x with `--en
 fayrus/registrator:latest etcd-legacy://localhost:2379
 ```
 
-The legacy `etcd-legacy://` backend does not currently support `-cleanup`.
+The legacy `etcd-legacy://` backend supports `-cleanup` by recursively listing service keys under the configured prefix.
 
 ## Migrating from v9.0.x
 

@@ -30,7 +30,7 @@ The `-cleanup` flag removes dangling registry entries that no longer correspond 
 | `consul://` | Supported | Lists services through the Consul agent API |
 | `consulkv://` | Supported | Lists keys under the configured KV path |
 | `etcd://` | Supported | Lists keys under the configured etcd v3 prefix |
-| `etcd-legacy://` | Not currently supported | Listing support for the legacy v2 API has not been implemented |
+| `etcd-legacy://` | Supported | Lists keys recursively through the legacy etcd API |
 | `coredns://` | Not currently supported | SkyDNS keys do not preserve the original Registrator service ID safely |
 | `zookeeper://` | Not currently supported | Znode paths do not preserve the original Registrator service ID safely |
 
