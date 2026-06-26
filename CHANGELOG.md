@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.2.0](https://github.com/fayrus/registrator/releases/tag/v9.2.0) - 2026-06-26
+
+### Added
+- Added `-cleanup` listing support for `consulkv://`, modern `etcd://`, legacy `etcd-legacy://`, and `zookeeper://`
+- Added shared KV service parsing for ConsulKV and etcd-style backends
+- Added tests for cleanup service listing, malformed registry entries, and backend listing failures
+
+### Changed
+- Documented backend-specific `-cleanup` behavior and limitations across Consul, ConsulKV, etcd, etcd-legacy, ZooKeeper, and CoreDNS
+- ZooKeeper registrations now preserve the Registrator service ID in the znode payload so new registrations can be cleaned safely
+
+### Notes
+- `coredns://` remains unsupported for `-cleanup` because SkyDNS keys do not preserve the original Registrator service ID safely
+- ZooKeeper cleanup applies to registrations whose payload includes the service ID; older registrations without that field are ignored
+
+Closes #47.
+
 ## [v9.1.1](https://github.com/fayrus/registrator/releases/tag/v9.1.1) - 2026-06-05
 
 ### Changed
@@ -193,7 +210,12 @@ For history prior to v8.0.0, see the upstream projects:
 - [psyhomb/registrator](https://github.com/psyhomb/registrator)
 - [gliderlabs/registrator](https://github.com/gliderlabs/registrator)
 
-[unreleased]: https://github.com/fayrus/registrator/compare/v9.0.9...HEAD
+[unreleased]: https://github.com/fayrus/registrator/compare/v9.2.0...HEAD
+[v9.2.0]: https://github.com/fayrus/registrator/compare/v9.1.1...v9.2.0
+[v9.1.1]: https://github.com/fayrus/registrator/compare/v9.1.0...v9.1.1
+[v9.1.0]: https://github.com/fayrus/registrator/compare/v9.0.11...v9.1.0
+[v9.0.11]: https://github.com/fayrus/registrator/compare/v9.0.10...v9.0.11
+[v9.0.10]: https://github.com/fayrus/registrator/compare/v9.0.9...v9.0.10
 [v9.0.9]: https://github.com/fayrus/registrator/compare/v9.0.8...v9.0.9
 [v9.0.8]: https://github.com/fayrus/registrator/compare/v9.0.7...v9.0.8
 [v9.0.7]: https://github.com/fayrus/registrator/compare/v9.0.6...v9.0.7

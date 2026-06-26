@@ -12,6 +12,7 @@ import (
 
 	etcd2 "github.com/coreos/go-etcd/etcd"
 	"github.com/fayrus/registrator/internal/bridge"
+	"github.com/fayrus/registrator/internal/kvutil"
 	etcd "gopkg.in/coreos/go-etcd.v0/etcd"
 )
 
@@ -46,10 +47,26 @@ func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
 }
 
 type EtcdAdapter struct {
-	client  *etcd.Client
-	client2 *etcd2.Client
+	client  etcdV0Client
+	client2 etcdV2Client
 
 	path string
+}
+
+type etcdV0Client interface {
+	Set(key string, value string, ttl uint64) (*etcd.Response, error)
+	Delete(key string, recursive bool) (*etcd.Response, error)
+	Get(key string, sort, recursive bool) (*etcd.Response, error)
+	SendRequest(rr *etcd.RawRequest) (*etcd.RawResponse, error)
+	SyncCluster() bool
+}
+
+type etcdV2Client interface {
+	Set(key string, value string, ttl uint64) (*etcd2.Response, error)
+	Delete(key string, recursive bool) (*etcd2.Response, error)
+	Get(key string, sort, recursive bool) (*etcd2.Response, error)
+	SendRequest(rr *etcd2.RawRequest) (*etcd2.RawResponse, error)
+	SyncCluster() bool
 }
 
 func (r *EtcdAdapter) Ping() error {
@@ -126,5 +143,67 @@ func (r *EtcdAdapter) Refresh(service *bridge.Service) error {
 }
 
 func (r *EtcdAdapter) Services() ([]*bridge.Service, error) {
-	return []*bridge.Service{}, nil
+	r.syncEtcdCluster()
+
+	if r.client != nil {
+		res, err := r.client.Get(r.path, true, true)
+		if err != nil {
+			return []*bridge.Service{}, err
+		}
+		return servicesFromV0Node(r.servicePrefix(), res.Node), nil
+	}
+
+	res, err := r.client2.Get(r.path, true, true)
+	if err != nil {
+		return []*bridge.Service{}, err
+	}
+	return servicesFromV2Node(r.servicePrefix(), res.Node), nil
+}
+
+func (r *EtcdAdapter) servicePrefix() string {
+	return r.path + "/"
+}
+
+func servicesFromV0Node(prefix string, node *etcd.Node) []*bridge.Service {
+	if node == nil {
+		return []*bridge.Service{}
+	}
+	services := make([]*bridge.Service, 0, len(node.Nodes))
+	appendV0Services(prefix, node, &services)
+	return services
+}
+
+func appendV0Services(prefix string, node *etcd.Node, services *[]*bridge.Service) {
+	if node.Dir {
+		for _, child := range node.Nodes {
+			appendV0Services(prefix, child, services)
+		}
+		return
+	}
+	service, ok := kvutil.ServiceFromKV(prefix, node.Key, node.Value)
+	if ok {
+		*services = append(*services, service)
+	}
+}
+
+func servicesFromV2Node(prefix string, node *etcd2.Node) []*bridge.Service {
+	if node == nil {
+		return []*bridge.Service{}
+	}
+	services := make([]*bridge.Service, 0, len(node.Nodes))
+	appendV2Services(prefix, node, &services)
+	return services
+}
+
+func appendV2Services(prefix string, node *etcd2.Node, services *[]*bridge.Service) {
+	if node.Dir {
+		for _, child := range node.Nodes {
+			appendV2Services(prefix, child, services)
+		}
+		return
+	}
+	service, ok := kvutil.ServiceFromKV(prefix, node.Key, node.Value)
+	if ok {
+		*services = append(*services, service)
+	}
 }

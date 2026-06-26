@@ -42,6 +42,7 @@ In practice, this fork focuses on:
 Multi-architecture images are available for `linux/amd64` and `linux/arm64`.
 
 - `etcd://` is the recommended etcd backend for modern deployments.
+- `-cleanup` support depends on the backend; see the [cleanup support matrix](https://registrator.fayr.us/configuration/#cleanup-support).
 - The old SkyDNS2 backend was removed in `v8.0.4`. Use `coredns://` instead.
 - For `linux/arm/v7`, `linux/arm/v6`, and `linux/386`, use [`v8.0.1`](https://github.com/fayrus/registrator/releases/tag/v8.0.1).
 

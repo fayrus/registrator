@@ -11,6 +11,7 @@ import (
 
 	"github.com/fayrus/registrator/internal/bridge"
 	"github.com/fayrus/registrator/internal/etcdtls"
+	"github.com/fayrus/registrator/internal/kvutil"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -29,6 +30,7 @@ func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
 }
 
 type etcdClient interface {
+	Get(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error)
 	Put(ctx context.Context, key, val string, opts ...clientv3.OpOption) (*clientv3.PutResponse, error)
 	Delete(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.DeleteResponse, error)
 	Grant(ctx context.Context, ttl int64) (*clientv3.LeaseGrantResponse, error)
@@ -90,5 +92,23 @@ func (r *EtcdAdapter) Refresh(service *bridge.Service) error {
 }
 
 func (r *EtcdAdapter) Services() ([]*bridge.Service, error) {
-	return []*bridge.Service{}, nil
+	prefix := r.servicePrefix()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	res, err := r.client.Get(ctx, prefix, clientv3.WithPrefix())
+	if err != nil {
+		return []*bridge.Service{}, err
+	}
+	services := make([]*bridge.Service, 0, len(res.Kvs))
+	for _, kv := range res.Kvs {
+		service, ok := kvutil.ServiceFromKV(prefix, string(kv.Key), string(kv.Value))
+		if ok {
+			services = append(services, service)
+		}
+	}
+	return services, nil
+}
+
+func (r *EtcdAdapter) servicePrefix() string {
+	return r.path + "/"
 }
