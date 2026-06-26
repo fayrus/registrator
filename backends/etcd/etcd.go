@@ -7,11 +7,11 @@ import (
 	"net"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/fayrus/registrator/internal/bridge"
 	"github.com/fayrus/registrator/internal/etcdtls"
+	"github.com/fayrus/registrator/internal/kvutil"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -101,7 +101,7 @@ func (r *EtcdAdapter) Services() ([]*bridge.Service, error) {
 	}
 	services := make([]*bridge.Service, 0, len(res.Kvs))
 	for _, kv := range res.Kvs {
-		service, ok := serviceFromKV(prefix, string(kv.Key), string(kv.Value))
+		service, ok := kvutil.ServiceFromKV(prefix, string(kv.Key), string(kv.Value))
 		if ok {
 			services = append(services, service)
 		}
@@ -111,29 +111,4 @@ func (r *EtcdAdapter) Services() ([]*bridge.Service, error) {
 
 func (r *EtcdAdapter) servicePrefix() string {
 	return r.path + "/"
-}
-
-func serviceFromKV(prefix, key, value string) (*bridge.Service, bool) {
-	if !strings.HasPrefix(key, prefix) {
-		return nil, false
-	}
-	relativeKey := strings.TrimPrefix(key, prefix)
-	keyParts := strings.SplitN(relativeKey, "/", 2)
-	if len(keyParts) != 2 || keyParts[0] == "" || keyParts[1] == "" {
-		return nil, false
-	}
-	host, portText, err := net.SplitHostPort(value)
-	if err != nil {
-		return nil, false
-	}
-	port, err := strconv.Atoi(portText)
-	if err != nil {
-		return nil, false
-	}
-	return &bridge.Service{
-		Name: keyParts[0],
-		ID:   keyParts[1],
-		IP:   host,
-		Port: port,
-	}, true
 }

@@ -9,10 +9,10 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
-	"strings"
 
 	etcd2 "github.com/coreos/go-etcd/etcd"
 	"github.com/fayrus/registrator/internal/bridge"
+	"github.com/fayrus/registrator/internal/kvutil"
 	etcd "gopkg.in/coreos/go-etcd.v0/etcd"
 )
 
@@ -174,13 +174,13 @@ func servicesFromV0Node(prefix string, node *etcd.Node) []*bridge.Service {
 }
 
 func appendV0Services(prefix string, node *etcd.Node, services *[]*bridge.Service) {
-	for _, child := range node.Nodes {
-		appendV0Services(prefix, child, services)
-	}
 	if node.Dir {
+		for _, child := range node.Nodes {
+			appendV0Services(prefix, child, services)
+		}
 		return
 	}
-	service, ok := serviceFromKV(prefix, node.Key, node.Value)
+	service, ok := kvutil.ServiceFromKV(prefix, node.Key, node.Value)
 	if ok {
 		*services = append(*services, service)
 	}
@@ -196,39 +196,14 @@ func servicesFromV2Node(prefix string, node *etcd2.Node) []*bridge.Service {
 }
 
 func appendV2Services(prefix string, node *etcd2.Node, services *[]*bridge.Service) {
-	for _, child := range node.Nodes {
-		appendV2Services(prefix, child, services)
-	}
 	if node.Dir {
+		for _, child := range node.Nodes {
+			appendV2Services(prefix, child, services)
+		}
 		return
 	}
-	service, ok := serviceFromKV(prefix, node.Key, node.Value)
+	service, ok := kvutil.ServiceFromKV(prefix, node.Key, node.Value)
 	if ok {
 		*services = append(*services, service)
 	}
-}
-
-func serviceFromKV(prefix, key, value string) (*bridge.Service, bool) {
-	if !strings.HasPrefix(key, prefix) {
-		return nil, false
-	}
-	relativeKey := strings.TrimPrefix(key, prefix)
-	keyParts := strings.SplitN(relativeKey, "/", 2)
-	if len(keyParts) != 2 || keyParts[0] == "" || keyParts[1] == "" {
-		return nil, false
-	}
-	host, portText, err := net.SplitHostPort(value)
-	if err != nil {
-		return nil, false
-	}
-	port, err := strconv.Atoi(portText)
-	if err != nil {
-		return nil, false
-	}
-	return &bridge.Service{
-		Name: keyParts[0],
-		ID:   keyParts[1],
-		IP:   host,
-		Port: port,
-	}, true
 }
