@@ -10,7 +10,7 @@ Uses the official etcd v3 gRPC client (`go.etcd.io/etcd/client/v3`). Supports mu
 fayrus/registrator:latest etcd://localhost:2379
 ```
 
-The modern `etcd://` backend supports `-cleanup` by listing service keys under the configured prefix.
+The modern `etcd://` backend supports `-cleanup` by listing service keys under the configured prefix. Registrator expects keys in the same `<prefix>/<service-name>/<service-id>` layout it writes during registration.
 
 ### Multiple endpoints
 
@@ -56,7 +56,7 @@ Uses the etcd v2 HTTP API (`coreos/go-etcd`). Requires etcd ≤ 3.5.x with `--en
 fayrus/registrator:latest etcd-legacy://localhost:2379
 ```
 
-The legacy `etcd-legacy://` backend supports `-cleanup` by recursively listing service keys under the configured prefix.
+The legacy `etcd-legacy://` backend supports `-cleanup` by recursively listing service keys under the configured prefix. Registrator expects keys in the same `<prefix>/<service-name>/<service-id>` layout it writes during registration.
 
 ## Migrating from v9.0.x
 
