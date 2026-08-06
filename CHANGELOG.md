@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.2.1](https://github.com/fayrus/registrator/releases/tag/v9.2.1) - 2026-08-06
+
+### Changed
+- Bumped Go directive to `1.26.5` to match the `cgr.dev/chainguard/go:latest` base image
+- Updated Go dependencies to their latest compatible versions via `go get -u` and `go mod tidy`, including `go.etcd.io/etcd/*` v3.6.10 → v3.7.1, `github.com/hashicorp/consul/api` v1.34.1 → v1.34.4, and `github.com/fsouza/go-dockerclient` v1.13.1 → v1.13.2
+- Regenerated `docs/requirements.txt` to pull in `pymdown-extensions` 11.0.1
+
+### Fixed
+- Upgraded `google.golang.org/grpc` v1.80.0 → v1.83.0, resolving a high-severity xDS RBAC authorization bypass and HTTP/2 Rapid Reset DoS advisory (GHSA-hrxh-6v49-42gf)
+- Upgraded `pymdown-extensions` to 11.0.1, resolving a path traversal in the `b64` extension that could disclose file contents (GHSA-9xwg-3r6f-jcx2)
+
 ## [v9.2.0](https://github.com/fayrus/registrator/releases/tag/v9.2.0) - 2026-06-26
 
 ### Added
