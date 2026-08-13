@@ -19,6 +19,7 @@ func init() {
 type zkClient interface {
 	Exists(path string) (bool, *zk.Stat, error)
 	Create(path string, data []byte, flags int32, acl []zk.ACL) (string, error)
+	Set(path string, data []byte, version int32) (*zk.Stat, error)
 	Delete(path string, version int32) error
 	Children(path string) ([]string, *zk.Stat, error)
 	Get(path string) ([]byte, *zk.Stat, error)
@@ -84,6 +85,14 @@ func (r *ZkAdapter) Register(service *bridge.Service) error {
 	}
 
 	path := basePath + "/" + service.IP + ":" + publicPortString
+	nodeExists, _, err := r.client.Exists(path)
+	if err != nil {
+		return err
+	}
+	if nodeExists {
+		_, err = r.client.Set(path, body, -1)
+		return err
+	}
 	_, err = r.client.Create(path, body, 0, acl)
 	return err
 }
