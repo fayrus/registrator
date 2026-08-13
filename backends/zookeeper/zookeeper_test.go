@@ -13,6 +13,7 @@ type fakeZkClient struct {
 	exists    map[string]bool
 	existErr  map[string]error
 	createErr map[string]error
+	setErr    map[string]error
 	deleteErr map[string]error
 	children  map[string][]string
 	childErr  map[string]error
@@ -25,6 +26,7 @@ func newFakeClient() *fakeZkClient {
 		exists:    make(map[string]bool),
 		existErr:  make(map[string]error),
 		createErr: make(map[string]error),
+		setErr:    make(map[string]error),
 		deleteErr: make(map[string]error),
 		children:  make(map[string][]string),
 		childErr:  make(map[string]error),
@@ -44,6 +46,14 @@ func (f *fakeZkClient) Create(path string, data []byte, flags int32, acl []zk.AC
 	f.exists[path] = true
 	f.data[path] = data
 	return path, nil
+}
+
+func (f *fakeZkClient) Set(path string, data []byte, version int32) (*zk.Stat, error) {
+	if err := f.setErr[path]; err != nil {
+		return nil, err
+	}
+	f.data[path] = data
+	return nil, nil
 }
 
 func (f *fakeZkClient) Delete(path string, version int32) error {
@@ -135,6 +145,56 @@ func TestRegister_ReturnsErrorOnServiceNodeCreateFail(t *testing.T) {
 
 	if err := adapter(c).Register(testService()); err == nil {
 		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestRegister_UpdatesExistingServiceNode(t *testing.T) {
+	c := newFakeClient()
+	c.exists["/services/web"] = true
+	c.exists["/services/web/10.0.0.1:8080"] = true
+	c.createErr["/services/web/10.0.0.1:8080"] = errors.New("should not be called")
+
+	if err := adapter(c).Register(testService()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var body ZnodeBody
+	if err := json.Unmarshal(c.data["/services/web/10.0.0.1:8080"], &body); err != nil {
+		t.Fatalf("unexpected payload error: %v", err)
+	}
+	if body.ID != "host:web:8080" {
+		t.Errorf("unexpected service ID in payload: %s", body.ID)
+	}
+}
+
+func TestRegister_ReturnsErrorOnServiceNodeExistsFail(t *testing.T) {
+	c := newFakeClient()
+	c.exists["/services/web"] = true
+	c.existErr["/services/web/10.0.0.1:8080"] = errors.New("zk: connection closed")
+
+	if err := adapter(c).Register(testService()); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestRegister_ReturnsErrorOnServiceNodeSetFail(t *testing.T) {
+	c := newFakeClient()
+	c.exists["/services/web"] = true
+	c.exists["/services/web/10.0.0.1:8080"] = true
+	c.setErr["/services/web/10.0.0.1:8080"] = errors.New("zk: connection closed")
+
+	if err := adapter(c).Register(testService()); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestRefresh_UpdatesExistingServiceNodeWithoutError(t *testing.T) {
+	c := newFakeClient()
+	c.exists["/services/web"] = true
+	c.exists["/services/web/10.0.0.1:8080"] = true
+	c.createErr["/services/web/10.0.0.1:8080"] = errors.New("should not be called")
+
+	if err := adapter(c).Refresh(testService()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
