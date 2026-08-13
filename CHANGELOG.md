@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.2.2](https://github.com/fayrus/registrator/releases/tag/v9.2.2) - 2026-08-06
+
+### Fixed
+- ZooKeeper `Register()` now updates the service znode with `Set()` instead of blindly calling `Create()` when it already exists, so periodic `-resync`/TTL refresh cycles no longer fail with a repeated "node exists" error for already-registered services
+
 ## [v9.2.1](https://github.com/fayrus/registrator/releases/tag/v9.2.1) - 2026-08-06
 
 ### Changed
