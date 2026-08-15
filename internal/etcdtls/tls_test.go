@@ -39,13 +39,27 @@ func writeTempCert(t *testing.T) (certFile, keyFile string) {
 	certFile = filepath.Join(dir, "cert.pem")
 	keyFile = filepath.Join(dir, "key.pem")
 
-	cf, _ := os.Create(certFile)
-	_ = pem.Encode(cf, &pem.Block{Type: "CERTIFICATE", Bytes: certDER})
-	_ = cf.Close()
+	cf, err := os.Create(certFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := pem.Encode(cf, &pem.Block{Type: "CERTIFICATE", Bytes: certDER}); err != nil {
+		t.Fatal(err)
+	}
+	if err := cf.Close(); err != nil {
+		t.Fatal(err)
+	}
 
-	kf, _ := os.Create(keyFile)
-	_ = pem.Encode(kf, &pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
-	_ = kf.Close()
+	kf, err := os.Create(keyFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := pem.Encode(kf, &pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER}); err != nil {
+		t.Fatal(err)
+	}
+	if err := kf.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	return certFile, keyFile
 }
@@ -83,6 +97,20 @@ func TestBuild_CACertError(t *testing.T) {
 	_, err := Build(certFile, keyFile, "/nonexistent/ca.pem")
 	if err == nil {
 		t.Fatal("expected error for missing CA cert, got nil")
+	}
+}
+
+func TestBuild_CACertWithNoValidPEMs(t *testing.T) {
+	certFile, keyFile := writeTempCert(t)
+
+	caFile := filepath.Join(t.TempDir(), "ca.pem")
+	if err := os.WriteFile(caFile, []byte("not a pem file"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Build(certFile, keyFile, caFile)
+	if err == nil {
+		t.Fatal("expected error for CA file with no valid PEM certificates, got nil")
 	}
 }
 

@@ -62,10 +62,22 @@ func TestServiceFromKV(t *testing.T) {
 				t.Fatalf("ok = %t, want %t", ok, tt.want)
 			}
 			if !ok {
+				if service != nil {
+					t.Fatalf("expected nil service when ok is false, got: %+v", service)
+				}
 				return
 			}
-			if service.Name != tt.wantName || service.ID != tt.wantID || service.IP != tt.wantIP || service.Port != tt.wantPort {
-				t.Fatalf("unexpected service: %+v", service)
+			if service.Name != tt.wantName {
+				t.Fatalf("service.Name = %q, want %q", service.Name, tt.wantName)
+			}
+			if service.ID != tt.wantID {
+				t.Fatalf("service.ID = %q, want %q", service.ID, tt.wantID)
+			}
+			if service.IP != tt.wantIP {
+				t.Fatalf("service.IP = %q, want %q", service.IP, tt.wantIP)
+			}
+			if service.Port != tt.wantPort {
+				t.Fatalf("service.Port = %d, want %d", service.Port, tt.wantPort)
 			}
 		})
 	}

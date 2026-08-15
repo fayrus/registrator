@@ -7,10 +7,10 @@ import (
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
 
-func mapDefault(m map[string]string, key, default_ string) string {
+func mapDefault(m map[string]string, key, defaultValue string) string {
 	v, ok := m[key]
 	if !ok || v == "" {
-		return default_
+		return defaultValue
 	}
 	return v
 }

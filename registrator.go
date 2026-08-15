@@ -16,7 +16,7 @@ import (
 
 var Version string
 
-var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
+var hostIP = flag.String("ip", "", "IP for ports mapped to the host")
 var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
 var explicit = flag.Bool("explicit", false, "Only register containers which have SERVICE_NAME label set")
 var useIpFromLabel = flag.String("useIpFromLabel", "", "Use IP which is stored in a label assigned to the container")
@@ -38,7 +38,7 @@ func assert(err error) {
 
 func connectWithRetry(docker *dockerapi.Client, adapterURI string, config bridge.Config, retryAttempts int, retryInterval time.Duration) (*bridge.Bridge, error) {
 	attempt := 0
-	for retryAttempts == -1 || attempt <= retryAttempts {
+	for {
 		log.Printf("Connecting to backend (%v/%v)", attempt, retryAttempts)
 
 		b, err := bridge.New(docker, adapterURI, config)
@@ -48,18 +48,16 @@ func connectWithRetry(docker *dockerapi.Client, adapterURI string, config bridge
 		if err == nil {
 			return b, nil
 		}
-		if retryAttempts != -1 && attempt == retryAttempts {
+		if retryAttempts != -1 && attempt >= retryAttempts {
 			return nil, err
 		}
 
 		time.Sleep(retryInterval)
 		attempt++
 	}
-
-	return nil, errors.New("unreachable retry state")
 }
 
-func validateArgs() error {
+func validateArgs() {
 	if flag.NArg() == 0 {
 		fmt.Fprint(os.Stderr, "Missing required argument for registry URI.\n\n")
 		flag.Usage()
@@ -72,7 +70,6 @@ func validateArgs() error {
 		flag.Usage()
 		os.Exit(2)
 	}
-	return nil
 }
 
 func validateFlags() error {
@@ -152,10 +149,10 @@ func main() {
 	}
 
 	flag.Parse()
-	assert(validateArgs())
+	validateArgs()
 
-	if *hostIp != "" {
-		log.Println("Forcing host IP to", *hostIp)
+	if *hostIP != "" {
+		log.Println("Forcing host IP to", *hostIP)
 	}
 
 	assert(validateFlags())
@@ -165,7 +162,7 @@ func main() {
 	assert(err)
 
 	b, err := connectWithRetry(docker, flag.Arg(0), bridge.Config{
-		HostIp:          *hostIp,
+		HostIP:          *hostIP,
 		Internal:        *internal,
 		Explicit:        *explicit,
 		UseIpFromLabel:  *useIpFromLabel,
