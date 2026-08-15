@@ -27,7 +27,9 @@ func Build(certFile, keyFile, caFile string) (*tls.Config, error) {
 			return nil, fmt.Errorf("failed to read CA cert: %w", err)
 		}
 		pool := x509.NewCertPool()
-		pool.AppendCertsFromPEM(ca)
+		if !pool.AppendCertsFromPEM(ca) {
+			return nil, fmt.Errorf("no valid certificates found in CA file: %s", caFile)
+		}
 		cfg.RootCAs = pool
 	}
 

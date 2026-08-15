@@ -284,8 +284,8 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) (*Service, error) {
 	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
 
 	port, hostname := resolvePortHostIP(port)
-	if b.config.HostIp != "" {
-		port.HostIP = b.config.HostIp
+	if b.config.HostIP != "" {
+		port.HostIP = b.config.HostIP
 	}
 
 	metadata, metadataFromPort := serviceMetaData(container.Config, port.ExposedPort, port.PortType)

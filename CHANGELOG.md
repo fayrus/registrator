@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.2.3](https://github.com/fayrus/registrator/releases/tag/v9.2.3) - 2026-08-06
+
+### Fixed
+- `internal/etcdtls`: `Build()` now checks `AppendCertsFromPEM`'s return value and fails fast with a clear error when a CA file has no valid PEM certificates, instead of failing later and confusingly at TLS handshake time
+- `registrator.go`: `connectWithRetry`'s loop no longer contains unreachable code; `validateArgs()` no longer returns a misleading always-nil `error` when it already terminates the process via `os.Exit` on invalid arguments
+- Renamed `hostIp`/`Config.HostIp` to `hostIP`/`Config.HostIP` to follow Go initialism conventions
+
+### Changed
+- Hardened test assertions in `internal/etcdtls` and `internal/kvutil` (explicit error checks instead of discarding them, per-field assertions, nil-service checks on negative cases) following findings from GitHub AI code review and SonarCloud
+
 ## [v9.2.2](https://github.com/fayrus/registrator/releases/tag/v9.2.2) - 2026-08-06
 
 ### Fixed

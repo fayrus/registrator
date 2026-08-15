@@ -1,18 +1,24 @@
 package kvutil
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/fayrus/registrator/internal/bridge"
+)
+
+type serviceFromKVCase struct {
+	name     string
+	key      string
+	value    string
+	want     bool
+	wantName string
+	wantID   string
+	wantIP   string
+	wantPort int
+}
 
 func TestServiceFromKV(t *testing.T) {
-	tests := []struct {
-		name     string
-		key      string
-		value    string
-		want     bool
-		wantName string
-		wantID   string
-		wantIP   string
-		wantPort int
-	}{
+	tests := []serviceFromKVCase{
 		{
 			name:     "valid IPv4 service",
 			key:      "/services/web/host:web:80",
@@ -58,15 +64,32 @@ func TestServiceFromKV(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			service, ok := ServiceFromKV("/services/", tt.key, tt.value)
-			if ok != tt.want {
-				t.Fatalf("ok = %t, want %t", ok, tt.want)
-			}
-			if !ok {
-				return
-			}
-			if service.Name != tt.wantName || service.ID != tt.wantID || service.IP != tt.wantIP || service.Port != tt.wantPort {
-				t.Fatalf("unexpected service: %+v", service)
-			}
+			assertServiceFromKV(t, tt, service, ok)
 		})
+	}
+}
+
+func assertServiceFromKV(t *testing.T, tt serviceFromKVCase, service *bridge.Service, ok bool) {
+	t.Helper()
+	if ok != tt.want {
+		t.Fatalf("ok = %t, want %t", ok, tt.want)
+	}
+	if !ok {
+		if service != nil {
+			t.Fatalf("expected nil service when ok is false, got: %+v", service)
+		}
+		return
+	}
+	if service.Name != tt.wantName {
+		t.Fatalf("service.Name = %q, want %q", service.Name, tt.wantName)
+	}
+	if service.ID != tt.wantID {
+		t.Fatalf("service.ID = %q, want %q", service.ID, tt.wantID)
+	}
+	if service.IP != tt.wantIP {
+		t.Fatalf("service.IP = %q, want %q", service.IP, tt.wantIP)
+	}
+	if service.Port != tt.wantPort {
+		t.Fatalf("service.Port = %d, want %d", service.Port, tt.wantPort)
 	}
 }
