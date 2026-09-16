@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.2.4](https://github.com/fayrus/registrator/releases/tag/v9.2.4) - 2026-09-16
+
+### Fixed
+- Upgraded `google.golang.org/grpc` v1.83.0 → v1.83.2, resolving a heap memory exhaustion DoS via HTTP/2 DATA frame fragmentation (CVE-2026-84304) and an xDS gRPC server panic on requests missing `:authority`/`Host` (CVE-2026-84445)
+
 ## [v9.2.3](https://github.com/fayrus/registrator/releases/tag/v9.2.3) - 2026-08-06
 
 ### Fixed
