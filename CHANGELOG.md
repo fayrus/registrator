@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.2.7](https://github.com/fayrus/registrator/releases/tag/v9.2.7) - 2026-09-27
+
+### Fixed
+- `etcd-legacy://` backend construction now uses a 5-second timeout for the `/version` check, so an unresponsive endpoint returns an error instead of blocking startup indefinitely
+- The publish workflow now updates the Docker Hub description on every release; the previous README change check always failed silently on the shallow checkout
+
+### Notes
+- `etcd-legacy://` always connects over plain HTTP and does not support TLS; use `etcd://` if TLS is required
+
 ## [v9.2.6](https://github.com/fayrus/registrator/releases/tag/v9.2.6) - 2026-09-27
 
 ### Changed
