@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.2.6](https://github.com/fayrus/registrator/releases/tag/v9.2.6) - 2026-09-27
+
+### Changed
+- Pinned GitHub Actions runners to `ubuntu-26.04` instead of `ubuntu-latest` ahead of the Ubuntu 26.04 migration
+- Updated all GitHub Actions to their latest releases, including `actions/checkout` v7, `actions/setup-go` v7 and `actions/setup-python` v7, and pinned Trivy to v0.74.0 in the publish security scan
+
 ## [v9.2.5](https://github.com/fayrus/registrator/releases/tag/v9.2.5) - 2026-09-27
 
 ### Fixed
