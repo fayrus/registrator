@@ -58,6 +58,8 @@ fayrus/registrator:latest etcd-legacy://localhost:2379
 
 The legacy `etcd-legacy://` backend supports `-cleanup` by recursively listing service keys under the configured prefix. Registrator expects keys in the same `<prefix>/<service-name>/<service-id>` layout it writes during registration.
 
+`etcd-legacy://` always connects over plain HTTP and does not support TLS. Use `etcd://` if your etcd cluster requires TLS.
+
 ## Migrating from v9.0.x
 
 The backend URI schemes were renamed in v9.1.0 to eliminate a long-standing naming confusion:
