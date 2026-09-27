@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.2.5](https://github.com/fayrus/registrator/releases/tag/v9.2.5) - 2026-09-27
+
+### Fixed
+- Upgraded `mkdocs-material` 9.7.6 → 9.7.7 in the documentation toolchain, resolving a DOM-based XSS in the `search.suggest` feature via the `q` URL parameter (GHSA-xvg9-69gf-fjrf / CVE-2026-73295)
+
 ## [v9.2.4](https://github.com/fayrus/registrator/releases/tag/v9.2.4) - 2026-09-16
 
 ### Fixed
