@@ -2,7 +2,11 @@ package etcdlegacy
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"testing"
+	"time"
 
 	etcd2 "github.com/coreos/go-etcd/etcd"
 	etcd "gopkg.in/coreos/go-etcd.v0/etcd"
@@ -153,6 +157,66 @@ func TestServices_SkipsMalformedEntries(t *testing.T) {
 	}
 	if svcs[0].Name != "web" {
 		t.Errorf("unexpected service: %+v", svcs[0])
+	}
+}
+
+func TestFetchVersion_TimesOutOnSlowEndpoint(t *testing.T) {
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-release
+	}))
+	defer srv.Close()
+	defer close(release)
+
+	_, err := fetchVersion(&http.Client{Timeout: 50 * time.Millisecond}, srv.URL)
+	if err == nil {
+		t.Fatal("expected timeout error, got nil")
+	}
+}
+
+func TestNew_SelectsClientFromVersion(t *testing.T) {
+	cases := []struct {
+		name    string
+		version string
+		wantV0  bool
+	}{
+		{name: "v0.4", version: "etcd 0.4.6", wantV0: true},
+		{name: "v2", version: `{"etcdserver":"3.5.17","etcdcluster":"3.5.0"}`, wantV0: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = w.Write([]byte(tc.version))
+			}))
+			defer srv.Close()
+
+			uri, err := url.Parse("etcd-legacy://" + srv.Listener.Addr().String() + "/services")
+			if err != nil {
+				t.Fatal(err)
+			}
+			adapter, err := new(Factory).New(uri)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			a := adapter.(*EtcdAdapter)
+			if gotV0 := a.client != nil; gotV0 != tc.wantV0 {
+				t.Errorf("v0 client selected = %v, want %v", gotV0, tc.wantV0)
+			}
+		})
+	}
+}
+
+func TestNew_ReturnsErrorWhenVersionUnreachable(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	addr := srv.Listener.Addr().String()
+	srv.Close()
+
+	uri, err := url.Parse("etcd-legacy://" + addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := new(Factory).New(uri); err == nil {
+		t.Fatal("expected error, got nil")
 	}
 }
 

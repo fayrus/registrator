@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"time"
 
 	etcd2 "github.com/coreos/go-etcd/etcd"
 	"github.com/fayrus/registrator/internal/bridge"
@@ -30,13 +31,10 @@ func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
 		urls = append(urls, "http://127.0.0.1:2379")
 	}
 
-	res, err := http.Get(urls[0] + "/version")
+	body, err := fetchVersion(&http.Client{Timeout: versionCheckTimeout}, urls[0])
 	if err != nil {
 		return nil, fmt.Errorf("etcd-legacy: error retrieving version: %w", err)
 	}
-
-	defer func() { _ = res.Body.Close() }()
-	body, _ := io.ReadAll(res.Body)
 
 	if match, _ := regexp.Match("0\\.4\\.*", body); match {
 		log.Println("etcd-legacy: using v0 client")
@@ -44,6 +42,17 @@ func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
 	}
 
 	return &EtcdAdapter{client2: etcd2.NewClient(urls), path: uri.Path}, nil
+}
+
+const versionCheckTimeout = 5 * time.Second
+
+func fetchVersion(client *http.Client, baseURL string) ([]byte, error) {
+	res, err := client.Get(baseURL + "/version")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = res.Body.Close() }()
+	return io.ReadAll(res.Body)
 }
 
 type EtcdAdapter struct {
