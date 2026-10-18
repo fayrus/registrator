@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.2.8](https://github.com/fayrus/registrator/releases/tag/v9.2.8) - 2026-10-18
+
+### Security
+- Bumped Go `1.26.5` → `1.27.2` to address the `golang/stdlib` CVEs reported in Go 1.27.1
+- Upgraded `golang.org/x/net` v0.58.0 → v0.61.0 to address 5 HTTP/2 vulnerabilities reachable from registrator code (GO-2026-6603, GO-2026-6610, GO-2026-6611, GO-2026-6612, GO-2026-6617)
+- `golang.org/x/sys` v0.47.0 → v0.49.0 and `golang.org/x/text` v0.41.0 → v0.43.0 updated transitively
+
 ## [v9.2.7](https://github.com/fayrus/registrator/releases/tag/v9.2.7) - 2026-09-27
 
 ### Fixed
