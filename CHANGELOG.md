@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.2.9](https://github.com/fayrus/registrator/releases/tag/v9.2.9) - 2026-10-25
+
+### Security
+- Bumped Go `1.27.2` → `1.27.3` to address CVE-2026-111943 in `crypto/x509`
+
 ## [v9.2.8](https://github.com/fayrus/registrator/releases/tag/v9.2.8) - 2026-10-18
 
 ### Security
