@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.2.10](https://github.com/fayrus/registrator/releases/tag/v9.2.10) - 2026-10-29
+
+### Security
+- Upgraded `golang.org/x/net` v0.61.0 → v0.62.0 to address CVE-2026-78661 (GO-2026-6860) and CVE-2026-97045 (GO-2026-6866) in `x/net/html`; registrator does not call the affected code
+
 ## [v9.2.9](https://github.com/fayrus/registrator/releases/tag/v9.2.9) - 2026-10-25
 
 ### Security
