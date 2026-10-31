@@ -12,21 +12,48 @@ on:
       - "Makefile"
       - "LICENSE"
       - ".dockerignore"
+  # No paths-ignore on pull_request: sonarcloud is a required check, and a
+  # workflow skipped by a path filter never reports it, blocking docs-only PRs.
+  # The `changes` job skips the analysis job instead, which satisfies the check.
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
-    paths-ignore:
-      - ".github/ISSUE_TEMPLATE/**"
-      - "docs/**"
-      - "mkdocs.yml"
-      - "*.md"
-      - "requirements-docs.txt"
-      - "Makefile"
-      - "LICENSE"
-      - ".dockerignore"
 
 jobs:
+  changes:
+    runs-on: ubuntu-26.04
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Detect code changes
+        id: filter
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --name-only "$BASE_SHA"...HEAD)
+          echo "Changed files:"
+          echo "$changed"
+          # Same list as the push paths-ignore above
+          ignored='^(\.github/ISSUE_TEMPLATE/|docs/|mkdocs\.yml$|[^/]+\.md$|requirements-docs\.txt$|Makefile$|LICENSE$|\.dockerignore$)'
+          if printf '%s\n' "$changed" | grep -qvE "$ignored"; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   sonarcloud:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-26.04
     steps:
       - name: Checkout
