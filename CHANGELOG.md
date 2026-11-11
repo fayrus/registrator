@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.2.11](https://github.com/fayrus/registrator/releases/tag/v9.2.11) - 2026-11-10
+
+### Security
+- Upgraded `github.com/klauspost/compress` v1.19.1 → v1.20.4 to address CVE-2026-116591 (GO-2026-6865), a panic when decompressing malformed zstd frames reachable through the Docker client
+- Upgraded `certifi` 2026.5.20 → 2026.10.23 and `urllib3` 2.7.0 → 2.8.0 in the documentation toolchain (Dependabot alerts, PR #62); the binary is not affected
+
+### Changed
+- The SonarCloud workflow now skips its analysis job instead of the whole workflow on docs-only pull requests, so the required `sonarcloud` check no longer blocks them (PR #62)
+
 ## [v9.2.10](https://github.com/fayrus/registrator/releases/tag/v9.2.10) - 2026-10-29
 
 ### Security
