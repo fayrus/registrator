@@ -1,6 +1,9 @@
 package bridge
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
@@ -139,4 +142,37 @@ func TestNewService_InvalidPortTagsOnlyFailAffectedService(t *testing.T) {
 	assert.NoError(t, validErr)
 	assert.NotNil(t, validService)
 	assert.Equal(t, []string{"ok"}, validService.Tags)
+}
+
+func TestNewService_ShortNetworkContainerReference(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, "/containers/db/json") {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"Id":"db","NetworkSettings":{"IPAddress":"172.17.0.9"}}`))
+	}))
+	defer srv.Close()
+
+	docker, err := dockerapi.NewClient(srv.URL)
+	assert.NoError(t, err)
+
+	b := newTestBridge(Config{})
+	b.docker = docker
+	container := minimalContainer("192.168.1.10", "")
+	container.HostConfig.NetworkMode = "container:db"
+	port := ServicePort{
+		HostIP:      "192.168.1.10",
+		HostPort:    "32000",
+		ExposedPort: "8080",
+		PortType:    "tcp",
+		ContainerID: "abcdef1234567890",
+		container:   container,
+	}
+
+	svc, err := b.newService(port, false)
+	assert.NoError(t, err)
+	assert.NotNil(t, svc)
+	assert.Equal(t, "172.17.0.9", svc.IP)
 }

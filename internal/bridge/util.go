@@ -15,6 +15,15 @@ func mapDefault(m map[string]string, key, defaultValue string) string {
 	return v
 }
 
+// shortID returns the first 12 characters of a container ID for logging,
+// or the whole value when it is shorter (e.g. a container name).
+func shortID(id string) string {
+	if len(id) > 12 {
+		return id[:12]
+	}
+	return id
+}
+
 // Golang regexp module does not support /(?!\\),/ syntax for spliting by not escaped comma
 // Then this function is reproducing it
 func recParseEscapedComma(str string) []string {
