@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.2.12](https://github.com/fayrus/registrator/releases/tag/v9.2.12) - 2026-11-15
+
+### Security
+- Bumped Go `1.27.3` → `1.27.4` to address CVE-2026-97054 (GO-2026-6859) in `net/http`
+
 ## [v9.2.11](https://github.com/fayrus/registrator/releases/tag/v9.2.11) - 2026-11-10
 
 ### Security
