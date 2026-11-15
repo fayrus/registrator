@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.2.13](https://github.com/fayrus/registrator/releases/tag/v9.2.13) - 2026-11-15
+
+### Fixed
+- Containers using a `container:<name>` network mode with a reference shorter than 12 characters (e.g. `--network container:db`) no longer crash the process with a slice-bounds panic; container IDs in log messages are now truncated safely (R-046)
+
+Closes #65
+
 ## [v9.2.12](https://github.com/fayrus/registrator/releases/tag/v9.2.12) - 2026-11-15
 
 ### Security

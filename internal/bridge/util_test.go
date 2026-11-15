@@ -130,3 +130,21 @@ func TestServiceMetaData_PortRange_BoundaryPorts(t *testing.T) {
 	assert.Equal(t, "rtp", metaLo["name"])
 	assert.Equal(t, "rtp", metaHi["name"])
 }
+
+func TestShortID(t *testing.T) {
+	cases := []struct {
+		name string
+		id   string
+		want string
+	}{
+		{"empty", "", ""},
+		{"short name", "db", "db"},
+		{"exactly 12", "abcdef123456", "abcdef123456"},
+		{"full id", "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890", "abcdef123456"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			assert.Equal(t, c.want, shortID(c.id))
+		})
+	}
+}

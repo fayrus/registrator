@@ -95,7 +95,7 @@ func (b *Bridge) Refresh() {
 				log.Println("refresh failed:", service.ID, err)
 				continue
 			}
-			log.Println("refreshed:", containerId[:12], service.ID)
+			log.Println("refreshed:", shortID(containerId), service.ID)
 		}
 	}
 }
@@ -211,21 +211,21 @@ func (b *Bridge) add(containerId string, quiet bool) {
 	}
 
 	if b.services[containerId] != nil {
-		log.Println("container, ", containerId[:12], ", already exists, ignoring")
+		log.Println("container, ", shortID(containerId), ", already exists, ignoring")
 		// Alternatively, remove and readd or resubmit.
 		return
 	}
 
 	container, err := b.docker.InspectContainerWithOptions(dockerapi.InspectContainerOptions{ID: containerId})
 	if err != nil {
-		log.Println("unable to inspect container:", containerId[:12], err)
+		log.Println("unable to inspect container:", shortID(containerId), err)
 		return
 	}
 
 	ports := extractContainerPorts(container)
 
 	if len(ports) == 0 && !quiet {
-		log.Println(logIgnored, container.ID[:12], "no published ports")
+		log.Println(logIgnored, shortID(container.ID), "no published ports")
 		return
 	}
 
@@ -235,12 +235,12 @@ func (b *Bridge) add(containerId string, quiet bool) {
 	for _, port := range servicePorts {
 		service, err := b.newService(port, isGroup)
 		if err != nil {
-			log.Println(logIgnored, container.ID[:12], "service on port", port.ExposedPort, err)
+			log.Println(logIgnored, shortID(container.ID), "service on port", port.ExposedPort, err)
 			continue
 		}
 		if service == nil {
 			if !quiet {
-				log.Println(logIgnored, container.ID[:12], "service on port", port.ExposedPort)
+				log.Println(logIgnored, shortID(container.ID), "service on port", port.ExposedPort)
 			}
 			continue
 		}
@@ -249,7 +249,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 			continue
 		}
 		b.services[container.ID] = append(b.services[container.ID], service)
-		log.Println("added:", container.ID[:12], service.ID)
+		log.Println("added:", shortID(container.ID), service.ID)
 	}
 }
 
@@ -270,7 +270,7 @@ func (b *Bridge) filterPublishedPorts(ports map[string]ServicePort, quiet bool, 
 	for key, port := range ports {
 		if !b.config.Internal && port.HostPort == "" {
 			if !quiet {
-				log.Println(logIgnored, containerID[:12], "port", port.ExposedPort, "not published on host")
+				log.Println(logIgnored, shortID(containerID), "port", port.ExposedPort, "not published on host")
 			}
 			continue
 		}
@@ -398,10 +398,10 @@ func (b *Bridge) resolveServiceIP(service *Service, port ServicePort, container 
 	// NetworkMode can point to another container (kubernetes pods)
 	if strings.HasPrefix(container.HostConfig.NetworkMode, "container:") {
 		networkContainerId := strings.Split(container.HostConfig.NetworkMode, ":")[1]
-		log.Println(service.Name + ": detected container NetworkMode, linked to: " + networkContainerId[:12])
+		log.Println(service.Name + ": detected container NetworkMode, linked to: " + shortID(networkContainerId))
 		networkContainer, err := b.docker.InspectContainerWithOptions(dockerapi.InspectContainerOptions{ID: networkContainerId})
 		if err != nil {
-			log.Println("unable to inspect network container:", networkContainerId[:12], err)
+			log.Println("unable to inspect network container:", shortID(networkContainerId), err)
 			return
 		}
 		service.IP = networkContainer.NetworkSettings.IPAddress
@@ -547,7 +547,7 @@ func (b *Bridge) remove(containerId string, deregister bool) {
 					log.Println("deregister failed:", service.ID, err)
 					continue
 				}
-				log.Println("removed:", containerId[:12], service.ID)
+				log.Println("removed:", shortID(containerId), service.ID)
 			}
 		}
 		deregisterAll(b.services[containerId])
@@ -574,16 +574,16 @@ func (b *Bridge) shouldRemove(containerId string) bool {
 		// the container has already been removed from Docker
 		// e.g. probabably run with "--rm" to remove immediately
 		// so its exit code is not accessible
-		log.Printf("registrator: container %v was removed, could not fetch exit code", containerId[:12])
+		log.Printf("registrator: container %v was removed, could not fetch exit code", shortID(containerId))
 		return true
 	}
 
 	switch {
 	case err != nil:
-		log.Printf("registrator: error fetching status for container %v on \"die\" event: %v\n", containerId[:12], err)
+		log.Printf("registrator: error fetching status for container %v on \"die\" event: %v\n", shortID(containerId), err)
 		return false
 	case container.State.Running:
-		log.Printf("registrator: not removing container %v, still running", containerId[:12])
+		log.Printf("registrator: not removing container %v, still running", shortID(containerId))
 		return false
 	case container.State.ExitCode == 0:
 		return true
