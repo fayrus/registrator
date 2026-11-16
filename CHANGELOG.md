@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.2.14](https://github.com/fayrus/registrator/releases/tag/v9.2.14) - 2026-11-15
+
+### Fixed
+- `etcd://` and `coredns://` now enable TLS when only `ETCD_CA_CERT_FILE` is set (server-authenticated TLS without a client certificate); previously the CA file was ignored and the client silently connected in plain text (R-050)
+
+### Changed
+- Setting only one of `ETCD_CERT_FILE` / `ETCD_KEY_FILE` is now a startup error instead of silently disabling TLS
+- The etcd client logs at startup whether TLS is enabled
+
+Closes #67
+
 ## [v9.2.13](https://github.com/fayrus/registrator/releases/tag/v9.2.13) - 2026-11-15
 
 ### Fixed
