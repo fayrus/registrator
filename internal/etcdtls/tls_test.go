@@ -124,3 +124,44 @@ func TestBuild_WithValidCACert(t *testing.T) {
 		t.Fatal("expected TLS config with RootCAs set")
 	}
 }
+
+func TestBuild_CAOnly(t *testing.T) {
+	caFile, _ := writeTempCert(t)
+	cfg, err := Build("", "", caFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg == nil || cfg.RootCAs == nil {
+		t.Fatal("expected TLS config with RootCAs set when only a CA file is provided")
+	}
+	if len(cfg.Certificates) != 0 {
+		t.Fatalf("expected no client certificate, got %d", len(cfg.Certificates))
+	}
+}
+
+func TestBuild_CAOnlyReadError(t *testing.T) {
+	_, err := Build("", "", "/nonexistent/ca.pem")
+	if err == nil {
+		t.Fatal("expected error for missing CA cert, got nil")
+	}
+}
+
+func TestBuild_PartialKeyPair(t *testing.T) {
+	certFile, keyFile := writeTempCert(t)
+	tests := []struct {
+		name     string
+		certFile string
+		keyFile  string
+	}{
+		{name: "cert without key", certFile: certFile},
+		{name: "key without cert", keyFile: keyFile},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Build(tt.certFile, tt.keyFile, "")
+			if err == nil {
+				t.Fatal("expected error when only one of cert/key is set, got nil")
+			}
+		})
+	}
+}

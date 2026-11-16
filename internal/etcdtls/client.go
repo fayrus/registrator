@@ -1,6 +1,7 @@
 package etcdtls
 
 import (
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -27,6 +28,10 @@ func NewClient(host string) (*clientv3.Client, error) {
 	}
 	if tlsCfg != nil {
 		cfg.TLS = tlsCfg
+		log.Printf("etcd client: TLS enabled (client certificate: %t, custom CA: %t)",
+			len(tlsCfg.Certificates) > 0, tlsCfg.RootCAs != nil)
+	} else {
+		log.Println("etcd client: TLS disabled (no ETCD_CERT_FILE, ETCD_KEY_FILE or ETCD_CA_CERT_FILE set)")
 	}
 
 	return clientv3.New(cfg)

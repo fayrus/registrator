@@ -38,9 +38,11 @@ The `coredns://` backend supports the same TLS environment variables as `etcd://
 
 | Variable | Description |
 |----------|-------------|
-| `ETCD_CERT_FILE` | Path to client certificate |
-| `ETCD_KEY_FILE` | Path to client key |
-| `ETCD_CA_CERT_FILE` | Path to CA certificate |
+| `ETCD_CERT_FILE` | Path to client certificate (requires `ETCD_KEY_FILE`) |
+| `ETCD_KEY_FILE` | Path to client key (requires `ETCD_CERT_FILE`) |
+| `ETCD_CA_CERT_FILE` | Path to CA certificate; enables TLS on its own |
+
+See [etcd TLS](etcd.md#tls) for the supported combinations.
 
 !!! note
     The SkyDNS2 backend was removed in v8.0.4. The `coredns://` backend is its replacement and is available since v9.0.0.

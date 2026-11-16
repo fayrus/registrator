@@ -60,3 +60,24 @@ func TestBuildEndpoints_DefaultWhenEmpty(t *testing.T) {
 		t.Errorf("unexpected endpoints: %v", eps)
 	}
 }
+
+func TestNewClient_PartialKeyPairError(t *testing.T) {
+	t.Setenv("ETCD_CERT_FILE", "/etc/etcd/certs/client.crt")
+	_, err := NewClient("localhost:12379")
+	if err == nil {
+		t.Fatal("expected error when ETCD_KEY_FILE is missing, got nil")
+	}
+}
+
+func TestNewClient_CAOnlyEnablesTLS(t *testing.T) {
+	caFile, _ := writeTempCert(t)
+	t.Setenv("ETCD_CA_CERT_FILE", caFile)
+	client, err := NewClient("localhost:12379")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if client == nil {
+		t.Fatal("expected non-nil client")
+	}
+	_ = client.Close()
+}

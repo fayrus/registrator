@@ -39,14 +39,21 @@ docker run -d \
     etcd://etcd1:2379
 ```
 
+TLS is enabled when any of `ETCD_CERT_FILE`, `ETCD_KEY_FILE` or `ETCD_CA_CERT_FILE` is set:
+
+- **Mutual TLS**: set `ETCD_CERT_FILE` and `ETCD_KEY_FILE` (plus `ETCD_CA_CERT_FILE` for a private CA).
+- **Server-authenticated TLS**: set only `ETCD_CA_CERT_FILE` to verify the server without presenting a client certificate.
+
+`ETCD_CERT_FILE` and `ETCD_KEY_FILE` must be set together; setting only one is a startup error. Registrator logs whether TLS is enabled when it connects.
+
 ### Environment variables
 
 | Variable | Description |
 |----------|-------------|
 | `ETCD_ENDPOINTS` | Comma-separated list of additional etcd endpoints |
-| `ETCD_CERT_FILE` | Path to client certificate |
-| `ETCD_KEY_FILE` | Path to client key |
-| `ETCD_CA_CERT_FILE` | Path to CA certificate |
+| `ETCD_CERT_FILE` | Path to client certificate (requires `ETCD_KEY_FILE`) |
+| `ETCD_KEY_FILE` | Path to client key (requires `ETCD_CERT_FILE`) |
+| `ETCD_CA_CERT_FILE` | Path to CA certificate; enables TLS on its own |
 
 ## etcd-legacy:// — legacy
 
