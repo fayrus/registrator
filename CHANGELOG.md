@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.2.15](https://github.com/fayrus/registrator/releases/tag/v9.2.15) - 2026-11-15
+
+### Changed
+- Updated Go dependencies: `go.etcd.io/etcd/*` v3.7.1 → v3.7.3, `github.com/hashicorp/consul/api` v1.34.4 → v1.35.0, `github.com/fsouza/go-dockerclient` v1.13.2 → v1.13.3 and `github.com/stretchr/testify` v1.11.1 → v1.12.1 (PR #71)
+- Enabled Dependabot version updates for Go modules, GitHub Actions and the docs requirements (PR #69)
+- Updated GitHub Actions (`actions/setup-python` v7.1.0, `github/codeql-action` v4.39.3, `docker/login-action` v4.8.0, `SonarSource/sonarqube-scan-action` v8.5.0) and `mkdocs-material` 9.8.1 for the docs site (PRs #70, #72)
+
 ## [v9.2.14](https://github.com/fayrus/registrator/releases/tag/v9.2.14) - 2026-11-15
 
 ### Fixed
