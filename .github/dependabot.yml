@@ -29,3 +29,14 @@ updates:
       docs:
         patterns:
           - "*"
+
+  # Base image updates change the published image: apply them together with a
+  # VERSION/CHANGELOG bump, same as Go module updates.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      docker:
+        patterns:
+          - "*"
