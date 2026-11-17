@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v9.2.16](https://github.com/fayrus/registrator/releases/tag/v9.2.16) - 2026-11-16
+
+### Fixed
+- Image labels now identify the project: `org.opencontainers.image.version` carries the release version instead of `latest`, `authors` and `vendor` are set to Fayrus instead of being inherited from the Chainguard base, and the Chainguard-specific `dev.chainguard.*` labels are blanked
+- Added `org.opencontainers.image.base.name` pointing at `cgr.dev/chainguard/static:latest`
+
+### Changed
+- The builder stage uses the pinned `golang:1.27.4-alpine` image instead of the floating `cgr.dev/chainguard/go:latest`, so builds use the Go version declared in `go.mod`; the runtime image is unchanged
+- Enabled Dependabot version updates for the Dockerfile base images
+
 ## [v9.2.15](https://github.com/fayrus/registrator/releases/tag/v9.2.15) - 2026-11-15
 
 ### Changed

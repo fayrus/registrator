@@ -113,10 +113,17 @@ jobs:
         with:
           images: fayrus/registrator
           tags: |
-            type=raw,value=latest
             type=raw,value=${{ steps.version.outputs.version }}
             type=raw,value=${{ steps.version.outputs.minor }}
             type=raw,value=${{ steps.version.outputs.major }}
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.authors=Fayrus https://fayr.us
+            org.opencontainers.image.vendor=Fayrus
+            org.opencontainers.image.base.name=cgr.dev/chainguard/static:latest
+            dev.chainguard.image.title=
+            dev.chainguard.package.main=
 
       - name: Build and push
         id: publish
