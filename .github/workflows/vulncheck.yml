@@ -1,0 +1,32 @@
+name: 🔐 Vulnerability Check
+
+# Runs on every PR and daily on main, so vulnerabilities disclosed after a
+# release are reported without waiting for a code change. Scans code, modules,
+# and the Go standard library for the version pinned in mise.toml.
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vulncheck:
+    name: Vulncheck (Go)
+    runs-on: ubuntu-26.04
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 🐹 Set up toolchain
+        uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          version: 2026.11.12
+          install_args: go go:golang.org/x/vuln/cmd/govulncheck
+
+      - name: 🔐 Check for known vulnerabilities
+        run: mise run vulncheck
