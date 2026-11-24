@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- `mise.toml` pins the development toolchain (Go, golangci-lint, govulncheck, Trivy, actionlint, shellcheck) and defines `test`, `coverage`, `lint`, `vulncheck`, `scan`, and `actionlint` tasks; the `Makefile` keeps working
+
+### Changed
+- The publish workflow scans images with Trivy `v0.76.2` (was `v0.74.0`)
+
 ## [v9.2.16](https://github.com/fayrus/registrator/releases/tag/v9.2.16) - 2026-11-16
 
 ### Fixed
