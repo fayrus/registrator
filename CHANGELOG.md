@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - The publish workflow scans images with Trivy `v0.76.2` (was `v0.74.0`)
 - The Docker Hub page now shows an operator-focused description (tag selection, backend choice, quick start, image security) instead of the repository README
+- Publishing fails before building when the `VERSION` tag is already on Docker Hub, so a released image tag is never overwritten; publish runs no longer overlap
 
 ## [v9.2.16](https://github.com/fayrus/registrator/releases/tag/v9.2.16) - 2026-11-16
 

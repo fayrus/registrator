@@ -21,9 +21,47 @@ on:
         default: false
         type: boolean
 
+# One publish at a time, so each version-check sees the tags pushed by the
+# previous run instead of racing it.
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
 jobs:
+  version-check:
+    name: Version Check
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Released version tags are immutable: fail before building rather than
+      # overwrite an image that deployments or rollbacks may already pin.
+      - name: Ensure version tag is not published
+        run: |
+          VERSION=$(cat VERSION)
+          url="https://hub.docker.com/v2/repositories/fayrus/registrator/tags/${VERSION}"
+          status=$(curl -sS -o /dev/null -w '%{http_code}' --retry 3 "$url" || true)
+          case "$status" in
+            404)
+              echo "Image tag ${VERSION} is not published yet."
+              ;;
+            200)
+              echo "::error::Image tag fayrus/registrator:${VERSION} is already published. Bump VERSION before merging changes that publish an image."
+              exit 1
+              ;;
+            *)
+              echo "::error::Could not confirm that fayrus/registrator:${VERSION} is unpublished (Docker Hub returned HTTP ${status}). Re-run the workflow once Docker Hub responds."
+              exit 1
+              ;;
+          esac
+
   security-scan:
     name: Security Scan
+    needs: version-check
     runs-on: ubuntu-26.04
     permissions:
       contents: read
