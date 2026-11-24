@@ -3,56 +3,89 @@ name: CI
 on:
   pull_request:
     branches: [main]
-    paths-ignore:
-      - ".github/ISSUE_TEMPLATE/**"
-      - "docs/**"
-      - "mkdocs.yml"
-      - "*.md"
-      - "sonar-project.properties"
-      - "requirements-docs.txt"
+    # No paths-ignore: these jobs are required checks, and a workflow skipped
+    # by a path filter never reports them, blocking docs-only PRs. The
+    # `changes` job skips the checks instead, which satisfies them.
+
+permissions:
+  contents: read
 
 jobs:
+  changes:
+    name: Detect code changes
+    runs-on: ubuntu-26.04
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: 🔎 Detect code changes
+        id: filter
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          changed=$(git diff --name-only "$BASE_SHA"...HEAD)
+          echo "Changed files:"
+          echo "$changed"
+          ignored='^(\.github/ISSUE_TEMPLATE/|\.github/[^/]+\.md$|docs/|mkdocs\.yml$|[^/]+\.md$|sonar-project\.properties$|requirements-docs\.txt$)'
+          if printf '%s\n' "$changed" | grep -qvE "$ignored"; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   workflow-lint:
     name: Lint (Actions)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-26.04
 
     steps:
-      - name: Checkout
+      - name: 📥 Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Lint workflows
+      - name: 🔍 Lint workflows
         uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
 
   tests:
     name: Tests (Go)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-26.04
 
     steps:
-      - name: Checkout
+      - name: 📥 Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Go
+      - name: 🐹 Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
 
-      - name: Run tests
-        run: go test ./...
+      - name: 🧪 Run tests
+        run: go test -race ./...
 
   lint:
     name: Lint (Go)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-26.04
 
     steps:
-      - name: Checkout
+      - name: 📥 Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Go
+      - name: 🐹 Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
 
-      - name: Lint
+      # Keep aligned with golangci-lint in mise.toml.
+      - name: 🧹 Lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          version: latest
+          version: v2.15.0

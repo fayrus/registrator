@@ -18,8 +18,8 @@ actionlint = "1.7.12"
 shellcheck = "0.11.0" # used by actionlint to check run: scripts
 
 [tasks.test]
-description = "Run the Go test suite"
-run = "go test ./..."
+description = "Run the Go test suite with the race detector"
+run = "go test -race ./..."
 
 [tasks.coverage]
 description = "Run tests with coverage and print the per-function summary"
