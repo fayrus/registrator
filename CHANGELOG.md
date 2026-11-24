@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - The publish workflow scans images with Trivy `v0.76.2` (was `v0.74.0`)
 - The Docker Hub page now shows an operator-focused description (tag selection, backend choice, quick start, image security) instead of the repository README
 - Publishing fails before building when the `VERSION` tag is already on Docker Hub, so a released image tag is never overwritten; publish runs no longer overlap
+- CI checks (`Lint (Actions)`, `Tests (Go)`, `Lint (Go)`) report on every pull request and are skipped when only documentation changes; tests run with the race detector (also in `make test` and `mise run test`), and golangci-lint is pinned to `v2.15.0`
 
 ## [v9.2.16](https://github.com/fayrus/registrator/releases/tag/v9.2.16) - 2026-11-16
 

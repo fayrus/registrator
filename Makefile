@@ -21,7 +21,7 @@ lint-output:
 	exit $$status
 
 test:
-	go test ./...
+	go test -race ./...
 
 coverage:
 	go test ./... -coverprofile=$(COVERAGE_OUT)
