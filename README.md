@@ -111,6 +111,8 @@ If you want a small Docker-native bridge that keeps existing service-discovery w
 
 The toolchain is pinned in [`mise.toml`](mise.toml). With [mise](https://mise.jdx.dev/) installed, run `mise install` once, then `mise tasks` to list the checks (`mise run test`, `mise run lint`, `mise run vulncheck`, `mise run scan`). The `Makefile` targets keep working without mise.
 
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) to propose a change. Report vulnerabilities privately as described in the [security policy](.github/SECURITY.md).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
