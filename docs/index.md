@@ -9,7 +9,7 @@ Supports [Consul](http://www.consul.io/), [etcd](https://github.com/coreos/etcd)
 Multi-architecture support: `linux/amd64`, `linux/arm64` — built with Chainguard hardened images.
 
 !!! note
-    For `linux/arm/v7`, `linux/arm/v6` and `linux/386` support, use [v8.0.1](https://github.com/fayrus/registrator/releases/tag/v8.0.1).
+    `linux/arm/v7`, `linux/arm/v6` and `linux/386` are no longer supported. [v8.0.1](https://github.com/fayrus/registrator/releases/tag/v8.0.1) is the last release built for them and receives no further fixes. Still running one of these? Comment on [#77](https://github.com/fayrus/registrator/issues/77).
 
 !!! warning
     The SkyDNS2 backend was removed in v8.0.4 (abandoned since 2016). Use the `coredns://` backend introduced in v9.0.0.
