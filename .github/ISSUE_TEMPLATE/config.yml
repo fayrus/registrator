@@ -1,0 +1,6 @@
+# Sends vulnerability reports to private reporting instead of a public issue.
+# Requires private vulnerability reporting enabled in the repository settings.
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/fayrus/registrator/security/policy
+    about: Please report vulnerabilities privately instead of opening a public issue.
