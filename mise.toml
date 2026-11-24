@@ -1,0 +1,48 @@
+#:schema https://mise.jdx.dev/schema/mise.json
+# Development toolchain for Registrator. Optional: the Makefile and plain `go`
+# commands keep working without mise.
+#
+#   mise install            # install the pinned tools
+#   mise tasks              # list available tasks
+#   mise run vulncheck      # run a task
+#
+# Keep versions aligned with CI: `go` with go.mod and the Dockerfile builder,
+# `trivy` with publish.yml, `actionlint` with ci.yml.
+
+[tools]
+go = "1.27.4"
+golangci-lint = "2.15.0"
+"go:golang.org/x/vuln/cmd/govulncheck" = "1.10.0"
+trivy = "0.76.2"
+actionlint = "1.7.12"
+shellcheck = "0.11.0" # used by actionlint to check run: scripts
+
+[tasks.test]
+description = "Run the Go test suite"
+run = "go test ./..."
+
+[tasks.coverage]
+description = "Run tests with coverage and print the per-function summary"
+run = [
+  "go test ./... -coverprofile=coverage.out",
+  "go tool cover -func=coverage.out",
+]
+
+[tasks.lint]
+description = "Run golangci-lint"
+run = "golangci-lint run ./..."
+
+[tasks.vulncheck]
+description = "Report reachable vulnerabilities in Go code, modules, and toolchain"
+run = "govulncheck ./..."
+
+[tasks.scan]
+description = "Build the image locally and scan it with Trivy, as the publish gate does"
+run = [
+  "docker build -t registrator:scan .",
+  "trivy image --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 registrator:scan",
+]
+
+[tasks.actionlint]
+description = "Lint GitHub Actions workflows"
+run = "actionlint"

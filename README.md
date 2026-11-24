@@ -100,6 +100,10 @@ If your use case needs a full service mesh, sidecar-based discovery, or orchestr
 
 If you want a small Docker-native bridge that keeps existing service-discovery workflows working, that is exactly what this project is for.
 
+## Development
+
+The toolchain is pinned in [`mise.toml`](mise.toml). With [mise](https://mise.jdx.dev/) installed, run `mise install` once, then `mise tasks` to list the checks (`mise run test`, `mise run lint`, `mise run vulncheck`, `mise run scan`). The `Makefile` targets keep working without mise.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
