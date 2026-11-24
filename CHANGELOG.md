@@ -4,17 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Added
-- `mise.toml` pins the development toolchain (Go, golangci-lint, govulncheck, Trivy, actionlint, shellcheck) and defines `test`, `coverage`, `lint`, `vulncheck`, `scan`, and `actionlint` tasks; the `Makefile` keeps working
-- CI runs `govulncheck` on every pull request and daily on `main`, using the version pinned in `mise.toml`
-- Security policy with private vulnerability reporting, contributing guide, and pull request template
+## [v9.2.17](https://github.com/fayrus/registrator/releases/tag/v9.2.17) - 2026-11-24
 
 ### Changed
+- Updated the etcd client modules (`go.etcd.io/etcd/api/v3`, `client/v3`, `client/pkg/v3`) to v3.7.4; the release contains etcd server fixes only, with no client behavior change
+- `linux/arm/v7`, `linux/arm/v6`, and `linux/386` are documented as no longer supported (`v8.0.1` was the last image for them); remaining users are asked to comment on [#77](https://github.com/fayrus/registrator/issues/77)
+- The Docker Hub page now shows an operator-focused description (tag selection, backend choice, quick start, image security) instead of the repository README ([#76](https://github.com/fayrus/registrator/issues/76))
+- Publishing fails before building when the `VERSION` tag is already on Docker Hub, so a released image tag is never overwritten; publish runs no longer overlap ([#81](https://github.com/fayrus/registrator/issues/81))
 - The publish workflow scans images with Trivy `v0.76.2` (was `v0.74.0`)
-- The Docker Hub page now shows an operator-focused description (tag selection, backend choice, quick start, image security) instead of the repository README
-- Publishing fails before building when the `VERSION` tag is already on Docker Hub, so a released image tag is never overwritten; publish runs no longer overlap
-- CI checks (`Lint (Actions)`, `Tests (Go)`, `Lint (Go)`) report on every pull request and are skipped when only documentation changes; tests run with the race detector (also in `make test` and `mise run test`), and golangci-lint is pinned to `v2.15.0`
-- Dependabot checks all ecosystems weekly on Monday, groups only minor and patch updates, uses conventional commit prefixes, and no longer proposes minor or major `golang` builder image upgrades
+- CI checks (`Lint (Actions)`, `Tests (Go)`, `Lint (Go)`) report on every pull request and are skipped when only documentation changes; tests run with the race detector (also in `make test` and `mise run test`), and golangci-lint is pinned to `v2.15.0` ([#83](https://github.com/fayrus/registrator/issues/83))
+- Dependabot checks all ecosystems weekly on Monday, groups only minor and patch updates, uses conventional commit prefixes, and no longer proposes minor or major `golang` builder image upgrades ([#85](https://github.com/fayrus/registrator/issues/85))
+
+### Added
+- `mise.toml` pins the development toolchain (Go, golangci-lint, govulncheck, Trivy, actionlint, shellcheck) and defines `test`, `coverage`, `lint`, `vulncheck`, `scan`, and `actionlint` tasks; the `Makefile` keeps working ([#74](https://github.com/fayrus/registrator/issues/74))
+- CI runs `govulncheck` on every pull request and daily on `main`, using the version pinned in `mise.toml` ([#75](https://github.com/fayrus/registrator/issues/75))
+- Security policy with private vulnerability reporting, contributing guide, code of conduct, and pull request template ([#87](https://github.com/fayrus/registrator/issues/87))
 
 ## [v9.2.16](https://github.com/fayrus/registrator/releases/tag/v9.2.16) - 2026-11-16
 
@@ -341,7 +345,7 @@ For history prior to v8.0.0, see the upstream projects:
 - [psyhomb/registrator](https://github.com/psyhomb/registrator)
 - [gliderlabs/registrator](https://github.com/gliderlabs/registrator)
 
-[unreleased]: https://github.com/fayrus/registrator/compare/v9.2.0...HEAD
+[unreleased]: https://github.com/fayrus/registrator/compare/v9.2.17...HEAD
 [v9.2.0]: https://github.com/fayrus/registrator/compare/v9.1.1...v9.2.0
 [v9.1.1]: https://github.com/fayrus/registrator/compare/v9.1.0...v9.1.1
 [v9.1.0]: https://github.com/fayrus/registrator/compare/v9.0.11...v9.1.0
