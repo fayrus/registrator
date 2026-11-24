@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - `mise.toml` pins the development toolchain (Go, golangci-lint, govulncheck, Trivy, actionlint, shellcheck) and defines `test`, `coverage`, `lint`, `vulncheck`, `scan`, and `actionlint` tasks; the `Makefile` keeps working
+- CI runs `govulncheck` on every pull request and daily on `main`, using the version pinned in `mise.toml`
 
 ### Changed
 - The publish workflow scans images with Trivy `v0.76.2` (was `v0.74.0`)
