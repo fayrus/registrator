@@ -34,4 +34,4 @@ Any other pull request needs a new version, so that a published release is not o
 
 ## Code of conduct
 
-By taking part in this project, you agree to follow its [Code of Conduct](CODE_OF_CONDUCT.md).
+By taking part in this project, you agree to follow its [Code of Conduct](../CODE_OF_CONDUCT.md).
