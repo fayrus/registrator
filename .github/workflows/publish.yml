@@ -29,18 +29,18 @@ concurrency:
 
 jobs:
   version-check:
-    name: Version Check
+    name: 🔒 Version Check
     runs-on: ubuntu-26.04
     permissions:
       contents: read
 
     steps:
-      - name: Checkout
+      - name: 📥 Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Released version tags are immutable: fail before building rather than
       # overwrite an image that deployments or rollbacks may already pin.
-      - name: Ensure version tag is not published
+      - name: 🔒 Ensure version tag is not published
         run: |
           VERSION=$(cat VERSION)
           url="https://hub.docker.com/v2/repositories/fayrus/registrator/tags/${VERSION}"
@@ -59,72 +59,24 @@ jobs:
               ;;
           esac
 
-  security-scan:
-    name: Security Scan
+  build:
+    name: 🔨 Build
     needs: version-check
     runs-on: ubuntu-26.04
     permissions:
       contents: read
-      security-events: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      major: ${{ steps.version.outputs.major }}
+      minor: ${{ steps.version.outputs.minor }}
+      digest: ${{ steps.build.outputs.digest }}
+      base_digest: ${{ steps.base.outputs.digest }}
 
     steps:
-      - name: Checkout
+      - name: 📥 Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Read version
-        id: version
-        run: |
-          VERSION=$(cat VERSION)
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-
-      - name: Build image for security scan
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        env:
-          DOCKER_BUILD_SUMMARY: false
-          DOCKER_BUILD_RECORD_UPLOAD: false
-        with:
-          context: .
-          platforms: linux/amd64
-          load: true
-          tags: fayrus/registrator:${{ steps.version.outputs.version }}
-          pull: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          version: v0.76.2
-          image-ref: fayrus/registrator:${{ steps.version.outputs.version }}
-          format: sarif
-          output: trivy-results.sarif
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_vulnerable_image && '0' || '1' }}
-
-      - name: Upload Trivy results to GitHub Security
-        if: always()
-        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
-        with:
-          sarif_file: trivy-results.sarif
-
-  publish:
-    name: Publish
-    needs: security-scan
-    runs-on: ubuntu-26.04
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Read version
+      - name: 🏷️ Read version
         id: version
         run: |
           VERSION=$(cat VERSION)
@@ -134,50 +86,153 @@ jobs:
             echo "minor=$(echo "$VERSION" | grep -oP 'v\d+\.\d+')"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Set up QEMU
+      - name: 🖥️ Set up QEMU
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
-      - name: Set up Docker Buildx
+      - name: 🐳 Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
-      - name: Log in to Docker Hub
+      - name: 🔑 Log in to Docker Hub
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract metadata
+      # The Chainguard free tier only serves `latest`, so the Dockerfile cannot
+      # pin a digest. Resolve it once here and reuse it for every platform.
+      - name: 🔎 Resolve runtime base digest
+        id: base
+        run: |
+          digest=$(docker buildx imagetools inspect cgr.dev/chainguard/static:latest --format '{{json .Manifest.Digest}}' | tr -d '"')
+          if [[ "$digest" != sha256:* ]]; then
+            echo "::error::Could not resolve the digest of cgr.dev/chainguard/static:latest (got '${digest}')."
+            exit 1
+          fi
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      # Only the labels are used here. The single tag keeps
+      # org.opencontainers.image.version at the release (vX.Y.Z) instead of
+      # `latest`; the publish job applies all tags once the scans pass.
+      - name: 🏷️ Extract metadata
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: fayrus/registrator
-          tags: |
-            type=raw,value=${{ steps.version.outputs.version }}
-            type=raw,value=${{ steps.version.outputs.minor }}
-            type=raw,value=${{ steps.version.outputs.major }}
-            type=raw,value=latest
+          tags: type=raw,value=${{ steps.version.outputs.version }}
           labels: |
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
             org.opencontainers.image.authors=Fayrus https://fayr.us
             org.opencontainers.image.vendor=Fayrus
             org.opencontainers.image.base.name=cgr.dev/chainguard/static:latest
+            org.opencontainers.image.base.digest=${{ steps.base.outputs.digest }}
             dev.chainguard.image.title=
             dev.chainguard.package.main=
 
-      - name: Build and push
-        id: publish
+      # Pushed by digest only: no tag points to this image until both scans pass.
+      - name: 🔨 Build and push by digest
+        id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          outputs: type=image,name=fayrus/registrator,push-by-digest=true,name-canonical=true,push=true
           labels: ${{ steps.meta.outputs.labels }}
+          build-contexts: |
+            cgr.dev/chainguard/static:latest=docker-image://cgr.dev/chainguard/static@${{ steps.base.outputs.digest }}
           pull: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Create git tag
+  security-scan:
+    name: 🛡️ Security Scan (${{ matrix.arch }})
+    needs: build
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            arch: amd64
+          - platform: linux/arm64
+            arch: arm64
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 🛡️ Scan image with Trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          TRIVY_PLATFORM: ${{ matrix.platform }}
+        with:
+          version: v0.76.2
+          image-ref: fayrus/registrator@${{ needs.build.outputs.digest }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_vulnerable_image && '0' || '1' }}
+
+      - name: 📤 Upload Trivy results to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-${{ matrix.arch }}
+
+  publish:
+    name: 📦 Publish
+    needs: [build, security-scan]
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: 🔑 Log in to Docker Hub
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Tags the scanned digest; nothing is rebuilt.
+      - name: 🚀 Tag scanned image
+        env:
+          DIGEST: ${{ needs.build.outputs.digest }}
+          VERSION: ${{ needs.build.outputs.version }}
+          MINOR: ${{ needs.build.outputs.minor }}
+          MAJOR: ${{ needs.build.outputs.major }}
+        run: |
+          docker buildx imagetools create \
+            -t fayrus/registrator:latest \
+            -t "fayrus/registrator:${VERSION}" \
+            -t "fayrus/registrator:${MINOR}" \
+            -t "fayrus/registrator:${MAJOR}" \
+            "fayrus/registrator@${DIGEST}"
+
+      - name: ✅ Verify published digest
+        env:
+          DIGEST: ${{ needs.build.outputs.digest }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          published=$(docker buildx imagetools inspect "fayrus/registrator:${VERSION}" --format '{{json .Manifest.Digest}}' | tr -d '"')
+          if [[ "$published" != "$DIGEST" ]]; then
+            echo "::error::fayrus/registrator:${VERSION} points to ${published}, not the scanned digest ${DIGEST}."
+            exit 1
+          fi
+          echo "fayrus/registrator:${VERSION} points to the scanned digest ${DIGEST}."
+
+      - name: 🔖 Create git tag
         id: git_tag
         run: |
           VERSION=$(cat VERSION)
@@ -191,7 +246,7 @@ jobs:
             echo "created=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Update Docker Hub description
+      - name: 📝 Update Docker Hub description
         id: dockerhub
         uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5
         with:
@@ -201,7 +256,7 @@ jobs:
           readme-filepath: ./.github/DOCKERHUB.md
           short-description: "Registers Docker containers in Consul, etcd, CoreDNS, or ZooKeeper automatically"
 
-      - name: Publish summary
+      - name: 📋 Publish summary
         if: always()
         run: |
           {
@@ -210,12 +265,13 @@ jobs:
             echo "| Field | Value |"
             echo "| --- | --- |"
             echo "| Job status | ${{ job.status }} |"
-            echo "| Version | ${{ steps.version.outputs.version }} |"
-            echo "| Major tag | ${{ steps.version.outputs.major }} |"
-            echo "| Minor tag | ${{ steps.version.outputs.minor }} |"
+            echo "| Version | ${{ needs.build.outputs.version }} |"
+            echo "| Major tag | ${{ needs.build.outputs.major }} |"
+            echo "| Minor tag | ${{ needs.build.outputs.minor }} |"
             echo "| Image | fayrus/registrator |"
-            echo "| Published tags | latest, ${{ steps.version.outputs.version }}, ${{ steps.version.outputs.minor }}, ${{ steps.version.outputs.major }} |"
-            echo "| Image digest | ${{ steps.publish.outputs.digest }} |"
+            echo "| Published tags | latest, ${{ needs.build.outputs.version }}, ${{ needs.build.outputs.minor }}, ${{ needs.build.outputs.major }} |"
+            echo "| Image digest (scanned and published) | ${{ needs.build.outputs.digest }} |"
+            echo "| Runtime base digest | cgr.dev/chainguard/static@${{ needs.build.outputs.base_digest }} |"
             echo "| Git tag created | ${{ steps.git_tag.outputs.created }} |"
             echo "| Docker Hub description update | ${{ steps.dockerhub.outcome }} |"
             echo "| Vulnerable image override | ${{ github.event_name == 'workflow_dispatch' && inputs.allow_vulnerable_image || false }} |"

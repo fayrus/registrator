@@ -83,7 +83,7 @@ Per-container settings such as `SERVICE_NAME`, `SERVICE_TAGS`, and health checks
 ## Image security
 
 - Runtime image: [Chainguard `static`](https://images.chainguard.dev/directory/image/static/overview), containing only the statically linked `registrator` binary; no shell or package manager.
-- Each release is scanned with Trivy (`linux/amd64` build) before publishing; a release with fixable HIGH or CRITICAL vulnerabilities is not published.
+- Each release is built once, and every platform of that exact image is scanned with Trivy before any tag points to it; a release with fixable HIGH or CRITICAL vulnerabilities is not published. The runtime base digest is recorded in the `org.opencontainers.image.base.digest` label.
 - Go code, modules, and the toolchain are checked with `govulncheck` on every pull request and daily.
 - Report vulnerabilities privately as described in the [security policy](https://github.com/fayrus/registrator/security/policy).
 
