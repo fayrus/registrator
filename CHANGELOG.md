@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- The published image is exactly the one Trivy scanned: the release is built once with the runtime base pinned to a digest, both `linux/amd64` and `linux/arm64` are scanned, and only then are the release tags applied; the base digest is recorded in the `org.opencontainers.image.base.digest` label ([#93](https://github.com/fayrus/registrator/issues/93))
+
 ## [v9.2.17](https://github.com/fayrus/registrator/releases/tag/v9.2.17) - 2026-11-24
 
 ### Changed
