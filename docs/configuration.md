@@ -21,6 +21,8 @@ Usage of /bin/registrator:
   -ttl-refresh=0:           Frequency with which service TTLs are refreshed
 ```
 
+With `-deregister=always`, services are deregistered whenever a container exits; with `on-success`, only when it exits with code 0, is stopped by a signal, or was already removed (`--rm`). In both modes, a container that is running or restarting again by the time its exit is processed (restart policy, `docker restart`) keeps its registration.
+
 ## Cleanup support
 
 The `-cleanup` flag removes dangling registry entries that no longer correspond to running Docker containers. Cleanup requires backend support for listing existing registrations.

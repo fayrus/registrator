@@ -25,6 +25,7 @@ type fakeDocker struct {
 	nonExited   []string // IDs returned by a list with a status filter
 	inspectFail map[string]bool
 	listFail    bool
+	onInspect   func(id string) // called before an inspect response, without the fake's lock
 }
 
 func newFakeDocker(t *testing.T) (*fakeDocker, *dockerapi.Client) {
@@ -59,6 +60,11 @@ func (f *fakeDocker) serve(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, out)
 	case strings.HasPrefix(path, "/containers/") && strings.HasSuffix(path, "/json"):
 		id := strings.TrimSuffix(strings.TrimPrefix(path, "/containers/"), "/json")
+		if hook := f.onInspect; hook != nil {
+			f.mu.Unlock()
+			hook(id)
+			f.mu.Lock()
+		}
 		if f.inspectFail[id] {
 			http.Error(w, "inspect failed", http.StatusInternalServerError)
 			return
@@ -270,13 +276,18 @@ func TestRemoveOnExit(t *testing.T) {
 		state           *dockerapi.State // nil: container no longer exists
 		inspectFails    bool
 		wantDeregister  bool
+		wantTracked     bool // services stay tracked as live (container still running)
 	}{
 		{name: "always deregisters regardless of exit code", deregisterCheck: "always", state: &dockerapi.State{ExitCode: 1}, wantDeregister: true},
+		{name: "always deregisters a container removed from Docker", deregisterCheck: "always", state: nil, wantDeregister: true},
+		{name: "always deregisters when inspect fails", deregisterCheck: "always", state: &dockerapi.State{}, inspectFails: true, wantDeregister: true},
+		{name: "always keeps a container that is running again", deregisterCheck: "always", state: &dockerapi.State{Running: true}, wantTracked: true},
+		{name: "always keeps a container that is restarting", deregisterCheck: "always", state: &dockerapi.State{Restarting: true, ExitCode: 1}, wantTracked: true},
 		{name: "on-success deregisters on exit code 0", deregisterCheck: "on-success", state: &dockerapi.State{ExitCode: 0}, wantDeregister: true},
 		{name: "on-success deregisters when stopped by a signal", deregisterCheck: "on-success", state: &dockerapi.State{ExitCode: 128 + 15}, wantDeregister: true},
 		{name: "on-success deregisters a container removed from Docker", deregisterCheck: "on-success", state: nil, wantDeregister: true},
 		{name: "on-success keeps a container that failed", deregisterCheck: "on-success", state: &dockerapi.State{ExitCode: 1}},
-		{name: "on-success keeps a container that is still running", deregisterCheck: "on-success", state: &dockerapi.State{Running: true}},
+		{name: "on-success keeps a container that is still running", deregisterCheck: "on-success", state: &dockerapi.State{Running: true}, wantTracked: true},
 		{name: "on-success keeps a container when inspect fails", deregisterCheck: "on-success", state: &dockerapi.State{}, inspectFails: true},
 	}
 	for _, tt := range tests {
@@ -304,9 +315,79 @@ func TestRemoveOnExit(t *testing.T) {
 			} else {
 				assert.Empty(t, deregistered)
 			}
-			assert.NotContains(t, b.services, "c1", "the container stops being tracked as live either way")
+			if tt.wantTracked {
+				assert.Equal(t, []string{Hostname + ":web:80"}, serviceIDs(b.services["c1"]), "a running container keeps its services tracked and refreshed")
+			} else {
+				assert.NotContains(t, b.services, "c1")
+			}
 		})
 	}
+}
+
+// A restart emits die and start milliseconds apart, and each event is handled
+// in its own goroutine. Both orders must leave the running container registered.
+func TestRestart_EventOrder(t *testing.T) {
+	t.Run("start handled before die", func(t *testing.T) {
+		b, docker, adapter := newLifecycleBridge(t, Config{DeregisterCheck: "always"})
+		docker.put(webContainer("c1", "web", "80/tcp"))
+		b.Add("c1")
+
+		b.Add("c1")          // start: services already present, nothing to do
+		b.RemoveOnExit("c1") // die: the container is running again
+
+		_, deregistered, _ := adapter.snapshot()
+		assert.Empty(t, deregistered)
+		assert.Equal(t, []string{Hostname + ":web:80"}, serviceIDs(b.services["c1"]))
+	})
+
+	t.Run("die handled before start", func(t *testing.T) {
+		b, docker, adapter := newLifecycleBridge(t, Config{DeregisterCheck: "always"})
+		c := webContainer("c1", "web", "80/tcp")
+		docker.put(c)
+		b.Add("c1")
+
+		docker.set(func(f *fakeDocker) { c.State = dockerapi.State{ExitCode: 0} })
+		b.RemoveOnExit("c1") // die: the container has stopped
+		docker.set(func(f *fakeDocker) { c.State = dockerapi.State{Running: true} })
+		b.Add("c1") // start: registers it again
+
+		registered, deregistered, _ := adapter.snapshot()
+		assert.Equal(t, []string{Hostname + ":web:80"}, deregistered)
+		assert.Equal(t, []string{Hostname + ":web:80", Hostname + ":web:80"}, registered)
+		assert.Equal(t, []string{Hostname + ":web:80"}, serviceIDs(b.services["c1"]))
+	})
+}
+
+// The die handler must decide and remove atomically: an Add for the same
+// container that arrives while the die handler inspects the container has to
+// wait, instead of slipping in between the decision and the removal.
+func TestRemoveOnExit_InspectsUnderBridgeLock(t *testing.T) {
+	b, docker, _ := newLifecycleBridge(t, Config{DeregisterCheck: "on-success"})
+	c := webContainer("c1", "web", "80/tcp")
+	docker.put(c)
+	b.Add("c1")
+	docker.set(func(f *fakeDocker) { c.State = dockerapi.State{ExitCode: 0} })
+
+	lockedDuringInspect := make(chan bool, 1)
+	docker.set(func(f *fakeDocker) {
+		f.onInspect = func(id string) {
+			if id != "c1" {
+				return
+			}
+			acquired := b.TryLock()
+			if acquired {
+				b.Unlock()
+			}
+			select {
+			case lockedDuringInspect <- !acquired:
+			default:
+			}
+		}
+	})
+
+	b.RemoveOnExit("c1")
+
+	assert.True(t, <-lockedDuringInspect, "the bridge lock is held while the exited container is inspected")
 }
 
 func TestRemove_DeregisterFailureDoesNotStopOtherServices(t *testing.T) {

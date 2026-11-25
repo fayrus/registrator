@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v9.2.18](https://github.com/fayrus/registrator/releases/tag/v9.2.18) - 2026-11-24
+
+### Fixed
+- A restarted container (restart policy or `docker restart`) is no longer deregistered while it is running; this also applies with the default `-deregister=always` ([#99](https://github.com/fayrus/registrator/issues/99))
+
 ### Added
 - Tests for the container registration lifecycle (add, deregistration on exit, dead-container TTL, refresh, sync, stale and dangling cleanup); `internal/bridge/bridge.go` now counts toward the SonarCloud coverage gate ([#95](https://github.com/fayrus/registrator/issues/95))
 
@@ -352,7 +357,7 @@ For history prior to v8.0.0, see the upstream projects:
 - [psyhomb/registrator](https://github.com/psyhomb/registrator)
 - [gliderlabs/registrator](https://github.com/gliderlabs/registrator)
 
-[unreleased]: https://github.com/fayrus/registrator/compare/v9.2.17...HEAD
+[unreleased]: https://github.com/fayrus/registrator/compare/v9.2.18...HEAD
 [v9.2.0]: https://github.com/fayrus/registrator/compare/v9.1.1...v9.2.0
 [v9.1.1]: https://github.com/fayrus/registrator/compare/v9.1.0...v9.1.1
 [v9.1.0]: https://github.com/fayrus/registrator/compare/v9.0.11...v9.1.0
