@@ -70,11 +70,25 @@ func (b *Bridge) Add(containerId string) {
 }
 
 func (b *Bridge) Remove(containerId string) {
+	b.Lock()
+	defer b.Unlock()
 	b.remove(containerId, true)
 }
 
+// RemoveOnExit handles a "die" event. The container is inspected while the
+// bridge lock is held, so a concurrent Add for the same container (the "start"
+// of a restart) cannot run between the decision and the removal.
 func (b *Bridge) RemoveOnExit(containerId string) {
-	b.remove(containerId, b.shouldRemove(containerId))
+	b.Lock()
+	defer b.Unlock()
+	switch b.exitAction(containerId) {
+	case exitKeepRunning:
+		return
+	case exitDeregister:
+		b.remove(containerId, true)
+	default:
+		b.remove(containerId, false)
+	}
 }
 
 func (b *Bridge) Refresh() {
@@ -535,10 +549,8 @@ func tmplJSONParse(b []byte, k string) string {
 	return string(js)
 }
 
+// remove must be called with the bridge lock held.
 func (b *Bridge) remove(containerId string, deregister bool) {
-	b.Lock()
-	defer b.Unlock()
-
 	if deregister {
 		deregisterAll := func(services []*Service) {
 			for _, service := range services {
@@ -565,32 +577,46 @@ func (b *Bridge) remove(containerId string, deregister bool) {
 // bit set on ExitCode if it represents an exit via a signal
 var dockerSignaledBit = 128
 
-func (b *Bridge) shouldRemove(containerId string) bool {
-	if b.config.DeregisterCheck == "always" {
-		return true
-	}
+type exitAction int
+
+const (
+	exitKeepRegistered exitAction = iota // stop tracking, keep the registry entry
+	exitDeregister                       // deregister the services
+	exitKeepRunning                      // the container runs again: change nothing
+)
+
+// exitAction decides what a "die" event does with the container's services.
+// A container that is running or restarting again (restart policy, docker
+// restart) keeps its registration in every -deregister mode.
+func (b *Bridge) exitAction(containerId string) exitAction {
+	always := b.config.DeregisterCheck == "always"
 	container, err := b.docker.InspectContainerWithOptions(dockerapi.InspectContainerOptions{ID: containerId})
 	if _, ok := err.(*dockerapi.NoSuchContainer); ok {
 		// the container has already been removed from Docker
 		// e.g. probabably run with "--rm" to remove immediately
 		// so its exit code is not accessible
 		log.Printf("registrator: container %v was removed, could not fetch exit code", shortID(containerId))
-		return true
+		return exitDeregister
 	}
 
 	switch {
+	case err != nil && always:
+		log.Printf("registrator: error fetching status for container %v on \"die\" event, deregistering: %v\n", shortID(containerId), err)
+		return exitDeregister
 	case err != nil:
 		log.Printf("registrator: error fetching status for container %v on \"die\" event: %v\n", shortID(containerId), err)
-		return false
-	case container.State.Running:
+		return exitKeepRegistered
+	case container.State.Running || container.State.Restarting:
 		log.Printf("registrator: not removing container %v, still running", shortID(containerId))
-		return false
+		return exitKeepRunning
+	case always:
+		return exitDeregister
 	case container.State.ExitCode == 0:
-		return true
+		return exitDeregister
 	case container.State.ExitCode&dockerSignaledBit == dockerSignaledBit:
-		return true
+		return exitDeregister
 	}
-	return false
+	return exitKeepRegistered
 }
 
 var Hostname string
