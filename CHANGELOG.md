@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Tests for the container registration lifecycle (add, deregistration on exit, dead-container TTL, refresh, sync, stale and dangling cleanup); `internal/bridge/bridge.go` now counts toward the SonarCloud coverage gate ([#95](https://github.com/fayrus/registrator/issues/95))
+
 ### Changed
 - The published image is exactly the one Trivy scanned: the release is built once with the runtime base pinned to a digest, both `linux/amd64` and `linux/arm64` are scanned, and only then are the release tags applied; the base digest is recorded in the `org.opencontainers.image.base.digest` label ([#93](https://github.com/fayrus/registrator/issues/93))
 
