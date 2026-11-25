@@ -11,6 +11,7 @@ on:
       - "LICENSE"
       - ".dockerignore"
       - "*.md"
+      - "**/*_test.go"
       - "sonar-project.properties"
       - "requirements-docs.txt"
   workflow_dispatch:

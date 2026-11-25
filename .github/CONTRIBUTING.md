@@ -28,7 +28,7 @@ The same checks are available as mise tasks: `mise run test`, `mise run lint`, `
 
 ## Versions and releases
 
-Merging to `main` publishes a release with the version in the `VERSION` file, unless the pull request only touches `.github/`, `docs/`, `Makefile`, `mise.toml`, `LICENSE`, `.dockerignore`, Markdown files in the repository root, `sonar-project.properties`, or `requirements-docs.txt`.
+Merging to `main` publishes a release with the version in the `VERSION` file, unless the pull request only touches `.github/`, `docs/`, `Makefile`, `mise.toml`, `LICENSE`, `.dockerignore`, Markdown files in the repository root, Go test files (`*_test.go`), `sonar-project.properties`, or `requirements-docs.txt`.
 
 Any other pull request needs a new version, so that a published release is not overwritten; the publish workflow fails if the version already exists. If you are not sure which version to use, leave it as it is and a maintainer will take care of it before merging.
 
