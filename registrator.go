@@ -99,6 +99,16 @@ func setupDockerHost() {
 	}
 }
 
+// dockerEventBuffer is how many Docker events can queue while the event loop
+// is busy. go-dockerclient drops an event when the listener channel is full,
+// so an unbuffered channel loses every event that arrives between receives.
+const dockerEventBuffer = 1024
+
+// newEventsChannel returns the channel registered as Docker event listener.
+func newEventsChannel() chan *dockerapi.APIEvents {
+	return make(chan *dockerapi.APIEvents, dockerEventBuffer)
+}
+
 func startRefreshTicker(b *bridge.Bridge, interval int, quit chan struct{}) {
 	if interval <= 0 {
 		return
@@ -196,7 +206,7 @@ func main() {
 	assert(err)
 
 	// Start event listener before listing containers to avoid missing anything
-	events := make(chan *dockerapi.APIEvents)
+	events := newEventsChannel()
 	assert(docker.AddEventListener(events))
 	log.Println("Listening for Docker events ...")
 

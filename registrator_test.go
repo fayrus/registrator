@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/fayrus/registrator/internal/bridge"
+	dockerapi "github.com/fsouza/go-dockerclient"
 	testassert "github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -96,4 +97,23 @@ func TestConnectWithRetryRetriesPingFailures(t *testing.T) {
 
 	testassert.Equal(t, 3, factory.newCalls)
 	testassert.Equal(t, 3, factory.pingCalls)
+}
+
+// go-dockerclient hands each event to listeners with a non-blocking send
+// (select with a default case) and drops it when the channel is not ready.
+// A burst that arrives while the event loop is busy must not be lost.
+func TestEventsChannel_KeepsBurstWhileLoopIsBusy(t *testing.T) {
+	events := newEventsChannel()
+
+	const burst = 500
+	delivered := 0
+	for i := 0; i < burst; i++ {
+		select {
+		case events <- &dockerapi.APIEvents{Status: "start"}:
+			delivered++
+		default: // what the library does when the listener is not ready
+		}
+	}
+
+	testassert.Equal(t, burst, delivered, "events sent while nobody is receiving are dropped")
 }
