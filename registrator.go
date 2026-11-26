@@ -117,6 +117,26 @@ func startRefreshTicker(b *bridge.Bridge, interval int, quit chan struct{}) {
 	}()
 }
 
+// shortcut: fixed interval without a flag; add one if operators need to tune it.
+const deregisterRetryInterval = 30 * time.Second
+
+// startDeregisterRetryTicker retries failed deregistrations even when
+// -ttl-refresh and -resync are disabled (the defaults).
+func startDeregisterRetryTicker(b *bridge.Bridge, quit chan struct{}) {
+	ticker := time.NewTicker(deregisterRetryInterval)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				b.RetryPendingDeregistrations()
+			case <-quit:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+}
+
 func startResyncTicker(b *bridge.Bridge, interval int, quit chan struct{}) {
 	if interval <= 0 {
 		return
@@ -185,6 +205,7 @@ func main() {
 	quit := make(chan struct{})
 	startRefreshTicker(b, *refreshInterval, quit)
 	startResyncTicker(b, *resyncInterval, quit)
+	startDeregisterRetryTicker(b, quit)
 
 	// Process Docker events
 	for msg := range events {

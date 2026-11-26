@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v9.2.19](https://github.com/fayrus/registrator/releases/tag/v9.2.19) - 2026-11-26
+
+### Fixed
+- A service whose deregistration fails (for example, the registry backend is briefly unavailable) is retried on every Docker event, refresh, resync, and every 30 seconds, for up to 10 attempts, instead of being left in the registry; a service registered again in the meantime is not deregistered by a stale retry ([#101](https://github.com/fayrus/registrator/issues/101))
+
 ## [v9.2.18](https://github.com/fayrus/registrator/releases/tag/v9.2.18) - 2026-11-24
 
 ### Fixed
@@ -357,7 +362,7 @@ For history prior to v8.0.0, see the upstream projects:
 - [psyhomb/registrator](https://github.com/psyhomb/registrator)
 - [gliderlabs/registrator](https://github.com/gliderlabs/registrator)
 
-[unreleased]: https://github.com/fayrus/registrator/compare/v9.2.18...HEAD
+[unreleased]: https://github.com/fayrus/registrator/compare/v9.2.19...HEAD
 [v9.2.0]: https://github.com/fayrus/registrator/compare/v9.1.1...v9.2.0
 [v9.1.1]: https://github.com/fayrus/registrator/compare/v9.1.0...v9.1.1
 [v9.1.0]: https://github.com/fayrus/registrator/compare/v9.0.11...v9.1.0
