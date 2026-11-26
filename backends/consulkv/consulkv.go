@@ -25,6 +25,11 @@ type kvStore interface {
 	List(prefix string, q *consulapi.QueryOptions) (consulapi.KVPairs, *consulapi.QueryMeta, error)
 }
 
+// statusAPI is the part of the Consul status endpoint Ping uses.
+type statusAPI interface {
+	Leader() (string, error)
+}
+
 type Factory struct{}
 
 func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
@@ -43,17 +48,23 @@ func (f *Factory) New(uri *url.URL) (bridge.RegistryAdapter, error) {
 	if err != nil {
 		return nil, fmt.Errorf("consulkv: failed to create client: %w", err)
 	}
-	return &ConsulKVAdapter{kv: client.KV(), path: path}, nil
+	return &ConsulKVAdapter{kv: client.KV(), status: client.Status(), path: path}, nil
 }
 
 type ConsulKVAdapter struct {
-	kv   kvStore
-	path string
+	kv     kvStore
+	status statusAPI
+	path   string
 }
 
-// Ping will try to connect to consul by attempting to retrieve the current leader.
+// Ping checks connectivity by retrieving the current Consul leader, so the
+// startup retry (-retry-attempts) waits until Consul is reachable.
 func (r *ConsulKVAdapter) Ping() error {
-	// Ping is not testable without a real Consul client; kept as a no-op in tests.
+	leader, err := r.status.Leader()
+	if err != nil {
+		return err
+	}
+	log.Println("consulkv: current leader", leader)
 	return nil
 }
 
