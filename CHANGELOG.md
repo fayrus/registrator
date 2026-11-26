@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v9.2.21](https://github.com/fayrus/registrator/releases/tag/v9.2.21) - 2026-11-26
+
+### Fixed
+- `consulkv://` now checks that Consul is reachable at startup (by asking for the current leader), so `-retry-attempts` and `-retry-interval` take effect instead of being skipped ([#105](https://github.com/fayrus/registrator/issues/105))
+
+### Notes
+- With `consulkv://` and the default `-retry-attempts=0`, Registrator now exits at startup if Consul is not reachable, logging an error such as `Get "http://<host>:8500/v1/status/leader": dial tcp <host>:8500: connect: connection refused`, like the `consul://` backend already did. Previously it started and failed every registration. If Consul may start after Registrator, set `-retry-attempts` (for example `-retry-attempts=-1` to wait indefinitely).
+
 ## [v9.2.20](https://github.com/fayrus/registrator/releases/tag/v9.2.20) - 2026-11-26
 
 ### Fixed
@@ -367,7 +375,7 @@ For history prior to v8.0.0, see the upstream projects:
 - [psyhomb/registrator](https://github.com/psyhomb/registrator)
 - [gliderlabs/registrator](https://github.com/gliderlabs/registrator)
 
-[unreleased]: https://github.com/fayrus/registrator/compare/v9.2.20...HEAD
+[unreleased]: https://github.com/fayrus/registrator/compare/v9.2.21...HEAD
 [v9.2.0]: https://github.com/fayrus/registrator/compare/v9.1.1...v9.2.0
 [v9.1.1]: https://github.com/fayrus/registrator/compare/v9.1.0...v9.1.1
 [v9.1.0]: https://github.com/fayrus/registrator/compare/v9.0.11...v9.1.0

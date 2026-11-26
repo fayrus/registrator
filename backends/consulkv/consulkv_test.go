@@ -2,6 +2,8 @@ package consul
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
 
@@ -168,5 +170,71 @@ func TestServices_ReturnsErrorOnListFail(t *testing.T) {
 	kv := &fakeKV{listErr: errors.New("consul: connection refused")}
 	if _, err := adapter(kv).Services(); err == nil {
 		t.Fatal("expected error, got nil")
+	}
+}
+
+// newFromServer builds the adapter through the factory, as Registrator does,
+// pointing it at a fake Consul HTTP API.
+func newFromServer(t *testing.T, handler http.HandlerFunc) bridge.RegistryAdapter {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
+	u, err := url.Parse("consulkv://" + srv.Listener.Addr().String() + "/services")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := new(Factory).New(u)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	return a
+}
+
+func TestPing(t *testing.T) {
+	tests := []struct {
+		name    string
+		status  int
+		body    string
+		wantErr bool
+	}{
+		{name: "succeeds when Consul reports a leader", status: http.StatusOK, body: `"10.0.0.1:8300"`},
+		{name: "fails when Consul answers with an error", status: http.StatusInternalServerError, body: "no cluster leader", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotPath string
+			a := newFromServer(t, func(w http.ResponseWriter, r *http.Request) {
+				gotPath = r.URL.Path
+				w.WriteHeader(tt.status)
+				_, _ = w.Write([]byte(tt.body))
+			})
+
+			err := a.Ping()
+
+			if tt.wantErr && err == nil {
+				t.Fatal("expected Ping to fail")
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("Ping: %v", err)
+			}
+			if gotPath != "/v1/status/leader" {
+				t.Fatalf("Ping queried %q, want /v1/status/leader", gotPath)
+			}
+		})
+	}
+}
+
+func TestPing_FailsWhenConsulIsUnreachable(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	addr := srv.Listener.Addr().String()
+	srv.Close() // nothing listens on addr any more
+
+	u, _ := url.Parse("consulkv://" + addr + "/services")
+	a, err := new(Factory).New(u)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if err := a.Ping(); err == nil {
+		t.Fatal("expected Ping to fail when Consul is unreachable")
 	}
 }
