@@ -589,3 +589,113 @@ func TestCleanup_SkipsWhenRegistryListingFails(t *testing.T) {
 	_, deregistered, _ := adapter.snapshot()
 	assert.Empty(t, deregistered)
 }
+
+func (a *recordingAdapter) setFailDeregister(id string, fail bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.failDereg[id] = fail
+}
+
+func (b *Bridge) pendingIDs() []string {
+	b.Lock()
+	defer b.Unlock()
+	ids := make([]string, 0, len(b.pendingDeregistrations))
+	for id := range b.pendingDeregistrations {
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+// stopWithFailedDeregistration registers c1, makes its deregistration fail,
+// and stops it, leaving one pending deregistration.
+func stopWithFailedDeregistration(t *testing.T, config Config) (*Bridge, *fakeDocker, *recordingAdapter, *dockerapi.Container) {
+	t.Helper()
+	b, docker, adapter := newLifecycleBridge(t, config)
+	c := webContainer("c1", "web", "80/tcp")
+	docker.put(c)
+	b.Add("c1")
+	adapter.setFailDeregister(Hostname+":web:80", true)
+	docker.set(func(f *fakeDocker) { c.State = dockerapi.State{ExitCode: 0} })
+	b.RemoveOnExit("c1")
+	require.Equal(t, []string{Hostname + ":web:80"}, b.pendingIDs())
+	return b, docker, adapter, c
+}
+
+func TestPendingDeregistration_RetriedUntilItSucceeds(t *testing.T) {
+	retries := map[string]func(b *Bridge, docker *fakeDocker){
+		"on refresh":        func(b *Bridge, _ *fakeDocker) { b.Refresh() },
+		"on sync":           func(b *Bridge, _ *fakeDocker) { b.Sync(true) },
+		"on the retry tick": func(b *Bridge, _ *fakeDocker) { b.RetryPendingDeregistrations() },
+		"on the next event": func(b *Bridge, docker *fakeDocker) {
+			docker.put(webContainer("c2", "api", "8080/tcp"))
+			b.Add("c2")
+		},
+	}
+	for name, retry := range retries {
+		t.Run(name, func(t *testing.T) {
+			b, docker, adapter, _ := stopWithFailedDeregistration(t, Config{DeregisterCheck: "always"})
+
+			retry(b, docker) // backend still failing: stays pending
+			assert.Equal(t, []string{Hostname + ":web:80"}, b.pendingIDs())
+
+			adapter.setFailDeregister(Hostname+":web:80", false)
+			retry(b, docker)
+
+			_, deregistered, _ := adapter.snapshot()
+			assert.Equal(t, []string{Hostname + ":web:80"}, deregistered)
+			assert.Empty(t, b.pendingIDs())
+		})
+	}
+}
+
+func TestPendingDeregistration_DroppedWhenServiceIsRegisteredAgain(t *testing.T) {
+	b, docker, adapter, c := stopWithFailedDeregistration(t, Config{DeregisterCheck: "always"})
+
+	// The container comes back before the backend recovers.
+	docker.set(func(f *fakeDocker) { c.State = dockerapi.State{Running: true} })
+	b.Add("c1")
+	assert.Empty(t, b.pendingIDs(), "a successful registration cancels the pending deregistration")
+
+	adapter.setFailDeregister(Hostname+":web:80", false)
+	b.RetryPendingDeregistrations()
+
+	_, deregistered, _ := adapter.snapshot()
+	assert.Empty(t, deregistered, "the running service is not deregistered by a stale retry")
+	assert.Equal(t, []string{Hostname + ":web:80"}, serviceIDs(b.services["c1"]))
+}
+
+func TestPendingDeregistration_GivesUpAfterMaxAttempts(t *testing.T) {
+	b, _, adapter, _ := stopWithFailedDeregistration(t, Config{DeregisterCheck: "always"})
+
+	for i := 1; i < maxDeregisterAttempts-1; i++ {
+		b.RetryPendingDeregistrations()
+	}
+	assert.Equal(t, []string{Hostname + ":web:80"}, b.pendingIDs(), "still pending before the last attempt")
+
+	b.RetryPendingDeregistrations()
+	assert.Empty(t, b.pendingIDs(), "dropped after the last failed attempt")
+
+	adapter.setFailDeregister(Hostname+":web:80", false)
+	b.RetryPendingDeregistrations()
+	_, deregistered, _ := adapter.snapshot()
+	assert.Empty(t, deregistered)
+}
+
+func TestPendingDeregistration_IncludesDeadContainerServices(t *testing.T) {
+	b, docker, adapter := newLifecycleBridge(t, Config{DeregisterCheck: "on-success", RefreshTtl: 30, RefreshInterval: 10})
+	c := webContainer("c1", "web", "80/tcp")
+	docker.put(c)
+	b.Add("c1")
+	docker.set(func(f *fakeDocker) { c.State = dockerapi.State{ExitCode: 1} })
+	b.RemoveOnExit("c1")
+	require.Contains(t, b.deadContainers, "c1")
+
+	adapter.setFailDeregister(Hostname+":web:80", true)
+	b.Remove("c1")
+	assert.Equal(t, []string{Hostname + ":web:80"}, b.pendingIDs())
+
+	adapter.setFailDeregister(Hostname+":web:80", false)
+	b.RetryPendingDeregistrations()
+	_, deregistered, _ := adapter.snapshot()
+	assert.Equal(t, []string{Hostname + ":web:80"}, deregistered)
+}

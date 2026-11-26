@@ -23,6 +23,8 @@ Usage of /bin/registrator:
 
 With `-deregister=always`, services are deregistered whenever a container exits; with `on-success`, only when it exits with code 0, is stopped by a signal, or was already removed (`--rm`). In both modes, a container that is running or restarting again by the time its exit is processed (restart policy, `docker restart`) keeps its registration.
 
+If the registry backend is unavailable when a service should be deregistered, Registrator retries on every Docker event, on each `-ttl-refresh` and `-resync` tick, and every 30 seconds, until it succeeds or 10 attempts have failed. A service that is registered again in the meantime (for example, the container restarted) is not deregistered by a later retry. After the last attempt the entry stays in the registry; `-cleanup` removes it on the next sync (at startup and on each `-resync` tick).
+
 ## Cleanup support
 
 The `-cleanup` flag removes dangling registry entries that no longer correspond to running Docker containers. Cleanup requires backend support for listing existing registrations.

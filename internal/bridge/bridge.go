@@ -33,6 +33,20 @@ type Bridge struct {
 	services       map[string][]*Service
 	deadContainers map[string]*DeadContainer
 	config         Config
+
+	// pendingDeregistrations holds services whose deregistration failed,
+	// keyed by service ID, until a retry succeeds or gives up.
+	pendingDeregistrations map[string]*pendingDeregistration
+}
+
+// maxDeregisterAttempts bounds retries of a failed deregistration, so a
+// backend that reports an already-removed service as an error is not retried
+// forever; -cleanup can still remove the entry later.
+const maxDeregisterAttempts = 10
+
+type pendingDeregistration struct {
+	service  *Service
+	attempts int
 }
 
 func New(docker *dockerapi.Client, adapterUri string, config Config) (*Bridge, error) {
@@ -56,6 +70,8 @@ func New(docker *dockerapi.Client, adapterUri string, config Config) (*Bridge, e
 		registry:       registry,
 		services:       make(map[string][]*Service),
 		deadContainers: make(map[string]*DeadContainer),
+
+		pendingDeregistrations: make(map[string]*pendingDeregistration),
 	}, nil
 }
 
@@ -66,12 +82,14 @@ func (b *Bridge) Ping() error {
 func (b *Bridge) Add(containerId string) {
 	b.Lock()
 	defer b.Unlock()
+	b.retryPendingDeregistrations()
 	b.add(containerId, false)
 }
 
 func (b *Bridge) Remove(containerId string) {
 	b.Lock()
 	defer b.Unlock()
+	b.retryPendingDeregistrations()
 	b.remove(containerId, true)
 }
 
@@ -81,6 +99,7 @@ func (b *Bridge) Remove(containerId string) {
 func (b *Bridge) RemoveOnExit(containerId string) {
 	b.Lock()
 	defer b.Unlock()
+	b.retryPendingDeregistrations()
 	switch b.exitAction(containerId) {
 	case exitKeepRunning:
 		return
@@ -89,6 +108,44 @@ func (b *Bridge) RemoveOnExit(containerId string) {
 	default:
 		b.remove(containerId, false)
 	}
+}
+
+// RetryPendingDeregistrations retries deregistrations that failed earlier.
+// Refresh, Sync, and every Docker event also retry, before their own work, so
+// a deregistration that has just failed is not retried at once. This entry
+// point lets the caller retry periodically when no refresh or resync interval
+// is configured.
+func (b *Bridge) RetryPendingDeregistrations() {
+	b.Lock()
+	defer b.Unlock()
+	b.retryPendingDeregistrations()
+}
+
+// retryPendingDeregistrations must be called with the bridge lock held.
+func (b *Bridge) retryPendingDeregistrations() {
+	for id, pending := range b.pendingDeregistrations {
+		err := b.registry.Deregister(pending.service)
+		if err == nil {
+			delete(b.pendingDeregistrations, id)
+			log.Println("removed on retry:", id)
+			continue
+		}
+		pending.attempts++
+		if pending.attempts >= maxDeregisterAttempts {
+			delete(b.pendingDeregistrations, id)
+			log.Printf("deregister failed %d times, giving up: %s %v", pending.attempts, id, err)
+			continue
+		}
+		log.Println("deregister retry failed:", id, err)
+	}
+}
+
+// queueDeregistration records a failed deregistration for retry.
+func (b *Bridge) queueDeregistration(service *Service) {
+	if b.pendingDeregistrations == nil {
+		b.pendingDeregistrations = make(map[string]*pendingDeregistration)
+	}
+	b.pendingDeregistrations[service.ID] = &pendingDeregistration{service: service, attempts: 1}
 }
 
 func (b *Bridge) Refresh() {
@@ -101,6 +158,8 @@ func (b *Bridge) Refresh() {
 			delete(b.deadContainers, containerId)
 		}
 	}
+
+	b.retryPendingDeregistrations()
 
 	for containerId, services := range b.services {
 		for _, service := range services {
@@ -117,6 +176,7 @@ func (b *Bridge) Refresh() {
 func (b *Bridge) Sync(quiet bool) {
 	b.Lock()
 	defer b.Unlock()
+	b.retryPendingDeregistrations()
 
 	containers, err := b.docker.ListContainers(dockerapi.ListContainersOptions{})
 	if err != nil && quiet {
@@ -147,7 +207,9 @@ func (b *Bridge) syncRegisteredServices(services []*Service) {
 	for _, service := range services {
 		if err := b.registry.Register(service); err != nil {
 			log.Println("sync register failed:", service, err)
+			continue
 		}
+		delete(b.pendingDeregistrations, service.ID)
 	}
 }
 
@@ -262,6 +324,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 			log.Println("register failed:", service, err)
 			continue
 		}
+		delete(b.pendingDeregistrations, service.ID)
 		b.services[container.ID] = append(b.services[container.ID], service)
 		log.Println("added:", shortID(container.ID), service.ID)
 	}
@@ -556,7 +619,8 @@ func (b *Bridge) remove(containerId string, deregister bool) {
 			for _, service := range services {
 				err := b.registry.Deregister(service)
 				if err != nil {
-					log.Println("deregister failed:", service.ID, err)
+					log.Println("deregister failed, will retry:", service.ID, err)
+					b.queueDeregistration(service)
 					continue
 				}
 				log.Println("removed:", shortID(containerId), service.ID)
