@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v9.2.22](https://github.com/fayrus/registrator/releases/tag/v9.2.22) - 2026-11-26
+
+### Fixed
+- A service whose registration fails (for example, a brief backend outage while a container starts) is retried until it succeeds while the container runs, instead of staying unregistered until the container restarts; this covers containers where only some ports registered and, with the default `-resync=0`, containers where none did ([#107](https://github.com/fayrus/registrator/issues/107))
+
+### Changed
+- Failed registrations and deregistrations are retried with a per-call backoff (30 seconds, doubling up to 5 minutes), so a burst of Docker events against an unavailable backend no longer multiplies backend calls; the 10-attempt limit for deregistrations now spans about 30 minutes ([#107](https://github.com/fayrus/registrator/issues/107))
+
 ## [v9.2.21](https://github.com/fayrus/registrator/releases/tag/v9.2.21) - 2026-11-26
 
 ### Fixed
@@ -375,7 +383,7 @@ For history prior to v8.0.0, see the upstream projects:
 - [psyhomb/registrator](https://github.com/psyhomb/registrator)
 - [gliderlabs/registrator](https://github.com/gliderlabs/registrator)
 
-[unreleased]: https://github.com/fayrus/registrator/compare/v9.2.21...HEAD
+[unreleased]: https://github.com/fayrus/registrator/compare/v9.2.22...HEAD
 [v9.2.0]: https://github.com/fayrus/registrator/compare/v9.1.1...v9.2.0
 [v9.1.1]: https://github.com/fayrus/registrator/compare/v9.1.0...v9.1.1
 [v9.1.0]: https://github.com/fayrus/registrator/compare/v9.0.11...v9.1.0
