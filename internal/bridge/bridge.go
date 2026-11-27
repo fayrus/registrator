@@ -36,17 +36,52 @@ type Bridge struct {
 
 	// pendingDeregistrations holds services whose deregistration failed,
 	// keyed by service ID, until a retry succeeds or gives up.
-	pendingDeregistrations map[string]*pendingDeregistration
+	pendingDeregistrations map[string]*pendingOp
+	// pendingRegistrations holds services of running containers whose
+	// registration failed, keyed by service ID, until a retry succeeds or the
+	// container stops.
+	pendingRegistrations map[string]*pendingOp
+
+	now func() time.Time // nil means time.Now; tests replace it
 }
 
 // maxDeregisterAttempts bounds retries of a failed deregistration, so a
 // backend that reports an already-removed service as an error is not retried
-// forever; -cleanup can still remove the entry later.
+// forever; -cleanup can still remove the entry later. Registrations have no
+// limit: a running container should end up registered, and its pending
+// registrations are dropped when it stops.
 const maxDeregisterAttempts = 10
 
-type pendingDeregistration struct {
-	service  *Service
-	attempts int
+// Retries back off per entry, so bursts of events against an unavailable
+// backend do not multiply backend calls.
+const (
+	initialRetryDelay = 30 * time.Second
+	maxRetryDelay     = 5 * time.Minute
+)
+
+// pendingOp is a failed registry call waiting for its next retry.
+type pendingOp struct {
+	service     *Service
+	containerID string
+	attempts    int
+	nextAttempt time.Time
+}
+
+// retryDelay is the wait after the given number of failed attempts:
+// initialRetryDelay, doubling up to maxRetryDelay.
+func retryDelay(attempts int) time.Duration {
+	delay := initialRetryDelay
+	for i := 1; i < attempts && delay < maxRetryDelay; i++ {
+		delay *= 2
+	}
+	return min(delay, maxRetryDelay)
+}
+
+func (b *Bridge) clock() time.Time {
+	if b.now != nil {
+		return b.now()
+	}
+	return time.Now()
 }
 
 func New(docker *dockerapi.Client, adapterUri string, config Config) (*Bridge, error) {
@@ -71,7 +106,8 @@ func New(docker *dockerapi.Client, adapterUri string, config Config) (*Bridge, e
 		services:       make(map[string][]*Service),
 		deadContainers: make(map[string]*DeadContainer),
 
-		pendingDeregistrations: make(map[string]*pendingDeregistration),
+		pendingDeregistrations: make(map[string]*pendingOp),
+		pendingRegistrations:   make(map[string]*pendingOp),
 	}, nil
 }
 
@@ -82,14 +118,14 @@ func (b *Bridge) Ping() error {
 func (b *Bridge) Add(containerId string) {
 	b.Lock()
 	defer b.Unlock()
-	b.retryPendingDeregistrations()
+	b.retryPending()
 	b.add(containerId, false)
 }
 
 func (b *Bridge) Remove(containerId string) {
 	b.Lock()
 	defer b.Unlock()
-	b.retryPendingDeregistrations()
+	b.retryPending()
 	b.remove(containerId, true)
 }
 
@@ -99,7 +135,7 @@ func (b *Bridge) Remove(containerId string) {
 func (b *Bridge) RemoveOnExit(containerId string) {
 	b.Lock()
 	defer b.Unlock()
-	b.retryPendingDeregistrations()
+	b.retryPending()
 	switch b.exitAction(containerId) {
 	case exitKeepRunning:
 		return
@@ -110,20 +146,23 @@ func (b *Bridge) RemoveOnExit(containerId string) {
 	}
 }
 
-// RetryPendingDeregistrations retries deregistrations that failed earlier.
-// Refresh, Sync, and every Docker event also retry, before their own work, so
-// a deregistration that has just failed is not retried at once. This entry
-// point lets the caller retry periodically when no refresh or resync interval
-// is configured.
-func (b *Bridge) RetryPendingDeregistrations() {
+// RetryPending retries failed registrations and deregistrations whose backoff
+// has elapsed. Refresh, Sync, and every Docker event also retry, before their
+// own work. This entry point lets the caller retry periodically when no
+// refresh or resync interval is configured.
+func (b *Bridge) RetryPending() {
 	b.Lock()
 	defer b.Unlock()
-	b.retryPendingDeregistrations()
+	b.retryPending()
 }
 
-// retryPendingDeregistrations must be called with the bridge lock held.
-func (b *Bridge) retryPendingDeregistrations() {
+// retryPending must be called with the bridge lock held.
+func (b *Bridge) retryPending() {
+	now := b.clock()
 	for id, pending := range b.pendingDeregistrations {
+		if now.Before(pending.nextAttempt) {
+			continue
+		}
 		err := b.registry.Deregister(pending.service)
 		if err == nil {
 			delete(b.pendingDeregistrations, id)
@@ -136,16 +175,74 @@ func (b *Bridge) retryPendingDeregistrations() {
 			log.Printf("deregister failed %d times, giving up: %s %v", pending.attempts, id, err)
 			continue
 		}
+		pending.nextAttempt = now.Add(retryDelay(pending.attempts))
 		log.Println("deregister retry failed:", id, err)
 	}
+	running := map[string]bool{} // containers inspected in this round
+	for id, pending := range b.pendingRegistrations {
+		if now.Before(pending.nextAttempt) {
+			continue
+		}
+		// The container may have stopped without its die event being
+		// processed; never register a container that is no longer running.
+		isRunning, checked := running[pending.containerID]
+		if !checked {
+			var err error
+			isRunning, err = b.containerRunning(pending.containerID)
+			if err != nil {
+				pending.attempts++
+				pending.nextAttempt = now.Add(retryDelay(pending.attempts))
+				log.Println("register retry skipped, cannot inspect container:", shortID(pending.containerID), err)
+				continue
+			}
+			running[pending.containerID] = isRunning
+		}
+		if !isRunning {
+			delete(b.pendingRegistrations, id)
+			log.Println("dropped pending registration, container not running:", shortID(pending.containerID), id)
+			continue
+		}
+		if err := b.registry.Register(pending.service); err != nil {
+			pending.attempts++
+			pending.nextAttempt = now.Add(retryDelay(pending.attempts))
+			log.Println("register retry failed:", id, err)
+			continue
+		}
+		delete(b.pendingRegistrations, id)
+		delete(b.pendingDeregistrations, id)
+		b.services[pending.containerID] = append(b.services[pending.containerID], pending.service)
+		log.Println("added on retry:", shortID(pending.containerID), id)
+	}
+}
+
+// containerRunning reports whether the container is running or restarting.
+// A container that no longer exists is not running.
+func (b *Bridge) containerRunning(containerID string) (bool, error) {
+	container, err := b.docker.InspectContainerWithOptions(dockerapi.InspectContainerOptions{ID: containerID})
+	if _, ok := err.(*dockerapi.NoSuchContainer); ok {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return container.State.Running || container.State.Restarting, nil
 }
 
 // queueDeregistration records a failed deregistration for retry.
 func (b *Bridge) queueDeregistration(service *Service) {
 	if b.pendingDeregistrations == nil {
-		b.pendingDeregistrations = make(map[string]*pendingDeregistration)
+		b.pendingDeregistrations = make(map[string]*pendingOp)
 	}
-	b.pendingDeregistrations[service.ID] = &pendingDeregistration{service: service, attempts: 1}
+	b.pendingDeregistrations[service.ID] = &pendingOp{service: service, attempts: 1, nextAttempt: b.clock().Add(retryDelay(1))}
+}
+
+// queueRegistration records a failed registration of a running container's
+// service for retry.
+func (b *Bridge) queueRegistration(containerID string, service *Service) {
+	if b.pendingRegistrations == nil {
+		b.pendingRegistrations = make(map[string]*pendingOp)
+	}
+	b.pendingRegistrations[service.ID] = &pendingOp{service: service, containerID: containerID, attempts: 1, nextAttempt: b.clock().Add(retryDelay(1))}
 }
 
 func (b *Bridge) Refresh() {
@@ -159,7 +256,7 @@ func (b *Bridge) Refresh() {
 		}
 	}
 
-	b.retryPendingDeregistrations()
+	b.retryPending()
 
 	for containerId, services := range b.services {
 		for _, service := range services {
@@ -176,7 +273,7 @@ func (b *Bridge) Refresh() {
 func (b *Bridge) Sync(quiet bool) {
 	b.Lock()
 	defer b.Unlock()
-	b.retryPendingDeregistrations()
+	b.retryPending()
 
 	containers, err := b.docker.ListContainers(dockerapi.ListContainersOptions{})
 	if err != nil && quiet {
@@ -320,10 +417,17 @@ func (b *Bridge) add(containerId string, quiet bool) {
 			}
 			continue
 		}
-		if err = b.registry.Register(service); err != nil {
-			log.Println("register failed:", service, err)
+		if _, queued := b.pendingRegistrations[service.ID]; queued {
+			// Already waiting for a retry (e.g. resync of a container whose
+			// services all failed): leave it to the retry queue and its backoff.
 			continue
 		}
+		if err = b.registry.Register(service); err != nil {
+			log.Println("register failed, will retry:", service, err)
+			b.queueRegistration(container.ID, service)
+			continue
+		}
+		delete(b.pendingRegistrations, service.ID)
 		delete(b.pendingDeregistrations, service.ID)
 		b.services[container.ID] = append(b.services[container.ID], service)
 		log.Println("added:", shortID(container.ID), service.ID)
@@ -614,6 +718,11 @@ func tmplJSONParse(b []byte, k string) string {
 
 // remove must be called with the bridge lock held.
 func (b *Bridge) remove(containerId string, deregister bool) {
+	for id, pending := range b.pendingRegistrations {
+		if pending.containerID == containerId {
+			delete(b.pendingRegistrations, id)
+		}
+	}
 	if deregister {
 		deregisterAll := func(services []*Service) {
 			for _, service := range services {

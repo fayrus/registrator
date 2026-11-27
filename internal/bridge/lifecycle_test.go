@@ -99,15 +99,16 @@ func (f *fakeDocker) set(fn func(f *fakeDocker)) {
 
 // recordingAdapter records registry calls and can fail selected service IDs.
 type recordingAdapter struct {
-	mu           sync.Mutex
-	registered   []string
-	deregistered []string
-	refreshed    []string
-	failRegister map[string]bool
-	failRefresh  map[string]bool
-	failDereg    map[string]bool
-	external     []*Service
-	servicesErr  error
+	mu            sync.Mutex
+	registered    []string
+	deregistered  []string
+	refreshed     []string
+	failRegister  map[string]bool
+	failRefresh   map[string]bool
+	failDereg     map[string]bool
+	external      []*Service
+	servicesErr   error
+	registerCalls int // every Register call, successful or not
 }
 
 func newRecordingAdapter() *recordingAdapter {
@@ -119,6 +120,7 @@ func (a *recordingAdapter) Ping() error { return nil }
 func (a *recordingAdapter) Register(s *Service) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	a.registerCalls++
 	if a.failRegister[s.ID] {
 		return errors.New("register failed")
 	}
@@ -596,21 +598,62 @@ func (a *recordingAdapter) setFailDeregister(id string, fail bool) {
 	a.failDereg[id] = fail
 }
 
-func (b *Bridge) pendingIDs() []string {
+func (a *recordingAdapter) setFailRegister(id string, fail bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.failRegister[id] = fail
+}
+
+// fakeClock lets tests move time forward past retry backoffs.
+type fakeClock struct {
+	mu sync.Mutex
+	t  time.Time
+}
+
+func (c *fakeClock) Now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.t
+}
+
+func (c *fakeClock) advance(d time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.t = c.t.Add(d)
+}
+
+func useFakeClock(b *Bridge) *fakeClock {
+	c := &fakeClock{t: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
+	b.Lock()
+	b.now = c.Now
+	b.Unlock()
+	return c
+}
+
+func pendingKeys[V any](b *Bridge, m func() map[string]V) []string {
 	b.Lock()
 	defer b.Unlock()
-	ids := make([]string, 0, len(b.pendingDeregistrations))
-	for id := range b.pendingDeregistrations {
+	ids := make([]string, 0)
+	for id := range m() {
 		ids = append(ids, id)
 	}
 	return ids
 }
 
+func (b *Bridge) pendingIDs() []string {
+	return pendingKeys(b, func() map[string]*pendingOp { return b.pendingDeregistrations })
+}
+
+func (b *Bridge) pendingRegistrationIDs() []string {
+	return pendingKeys(b, func() map[string]*pendingOp { return b.pendingRegistrations })
+}
+
 // stopWithFailedDeregistration registers c1, makes its deregistration fail,
 // and stops it, leaving one pending deregistration.
-func stopWithFailedDeregistration(t *testing.T, config Config) (*Bridge, *fakeDocker, *recordingAdapter, *dockerapi.Container) {
+func stopWithFailedDeregistration(t *testing.T, config Config) (*Bridge, *fakeDocker, *recordingAdapter, *dockerapi.Container, *fakeClock) {
 	t.Helper()
 	b, docker, adapter := newLifecycleBridge(t, config)
+	clock := useFakeClock(b)
 	c := webContainer("c1", "web", "80/tcp")
 	docker.put(c)
 	b.Add("c1")
@@ -618,14 +661,14 @@ func stopWithFailedDeregistration(t *testing.T, config Config) (*Bridge, *fakeDo
 	docker.set(func(f *fakeDocker) { c.State = dockerapi.State{ExitCode: 0} })
 	b.RemoveOnExit("c1")
 	require.Equal(t, []string{Hostname + ":web:80"}, b.pendingIDs())
-	return b, docker, adapter, c
+	return b, docker, adapter, c, clock
 }
 
 func TestPendingDeregistration_RetriedUntilItSucceeds(t *testing.T) {
 	retries := map[string]func(b *Bridge, docker *fakeDocker){
 		"on refresh":        func(b *Bridge, _ *fakeDocker) { b.Refresh() },
 		"on sync":           func(b *Bridge, _ *fakeDocker) { b.Sync(true) },
-		"on the retry tick": func(b *Bridge, _ *fakeDocker) { b.RetryPendingDeregistrations() },
+		"on the retry tick": func(b *Bridge, _ *fakeDocker) { b.RetryPending() },
 		"on the next event": func(b *Bridge, docker *fakeDocker) {
 			docker.put(webContainer("c2", "api", "8080/tcp"))
 			b.Add("c2")
@@ -633,12 +676,14 @@ func TestPendingDeregistration_RetriedUntilItSucceeds(t *testing.T) {
 	}
 	for name, retry := range retries {
 		t.Run(name, func(t *testing.T) {
-			b, docker, adapter, _ := stopWithFailedDeregistration(t, Config{DeregisterCheck: "always"})
+			b, docker, adapter, _, clock := stopWithFailedDeregistration(t, Config{DeregisterCheck: "always"})
 
+			clock.advance(maxRetryDelay)
 			retry(b, docker) // backend still failing: stays pending
 			assert.Equal(t, []string{Hostname + ":web:80"}, b.pendingIDs())
 
 			adapter.setFailDeregister(Hostname+":web:80", false)
+			clock.advance(maxRetryDelay)
 			retry(b, docker)
 
 			_, deregistered, _ := adapter.snapshot()
@@ -648,8 +693,30 @@ func TestPendingDeregistration_RetriedUntilItSucceeds(t *testing.T) {
 	}
 }
 
+func TestPendingRetry_WaitsForBackoff(t *testing.T) {
+	b, _, adapter, _, clock := stopWithFailedDeregistration(t, Config{DeregisterCheck: "always"})
+	adapter.setFailDeregister(Hostname+":web:80", false)
+
+	b.RetryPending() // not due yet: the first retry waits initialRetryDelay
+	_, deregistered, _ := adapter.snapshot()
+	assert.Empty(t, deregistered, "a burst of events right after a failure does not call the backend again")
+
+	clock.advance(initialRetryDelay)
+	b.RetryPending()
+	_, deregistered, _ = adapter.snapshot()
+	assert.Equal(t, []string{Hostname + ":web:80"}, deregistered)
+}
+
+func TestRetryDelay_DoublesUpToMax(t *testing.T) {
+	assert.Equal(t, initialRetryDelay, retryDelay(1))
+	assert.Equal(t, 2*initialRetryDelay, retryDelay(2))
+	assert.Equal(t, 4*initialRetryDelay, retryDelay(3))
+	assert.Equal(t, maxRetryDelay, retryDelay(10))
+	assert.Equal(t, maxRetryDelay, retryDelay(1000), "no overflow for long outages")
+}
+
 func TestPendingDeregistration_DroppedWhenServiceIsRegisteredAgain(t *testing.T) {
-	b, docker, adapter, c := stopWithFailedDeregistration(t, Config{DeregisterCheck: "always"})
+	b, docker, adapter, c, clock := stopWithFailedDeregistration(t, Config{DeregisterCheck: "always"})
 
 	// The container comes back before the backend recovers.
 	docker.set(func(f *fakeDocker) { c.State = dockerapi.State{Running: true} })
@@ -657,7 +724,8 @@ func TestPendingDeregistration_DroppedWhenServiceIsRegisteredAgain(t *testing.T)
 	assert.Empty(t, b.pendingIDs(), "a successful registration cancels the pending deregistration")
 
 	adapter.setFailDeregister(Hostname+":web:80", false)
-	b.RetryPendingDeregistrations()
+	clock.advance(maxRetryDelay)
+	b.RetryPending()
 
 	_, deregistered, _ := adapter.snapshot()
 	assert.Empty(t, deregistered, "the running service is not deregistered by a stale retry")
@@ -665,24 +733,28 @@ func TestPendingDeregistration_DroppedWhenServiceIsRegisteredAgain(t *testing.T)
 }
 
 func TestPendingDeregistration_GivesUpAfterMaxAttempts(t *testing.T) {
-	b, _, adapter, _ := stopWithFailedDeregistration(t, Config{DeregisterCheck: "always"})
+	b, _, adapter, _, clock := stopWithFailedDeregistration(t, Config{DeregisterCheck: "always"})
 
 	for i := 1; i < maxDeregisterAttempts-1; i++ {
-		b.RetryPendingDeregistrations()
+		clock.advance(maxRetryDelay)
+		b.RetryPending()
 	}
 	assert.Equal(t, []string{Hostname + ":web:80"}, b.pendingIDs(), "still pending before the last attempt")
 
-	b.RetryPendingDeregistrations()
+	clock.advance(maxRetryDelay)
+	b.RetryPending()
 	assert.Empty(t, b.pendingIDs(), "dropped after the last failed attempt")
 
 	adapter.setFailDeregister(Hostname+":web:80", false)
-	b.RetryPendingDeregistrations()
+	clock.advance(maxRetryDelay)
+	b.RetryPending()
 	_, deregistered, _ := adapter.snapshot()
 	assert.Empty(t, deregistered)
 }
 
 func TestPendingDeregistration_IncludesDeadContainerServices(t *testing.T) {
 	b, docker, adapter := newLifecycleBridge(t, Config{DeregisterCheck: "on-success", RefreshTtl: 30, RefreshInterval: 10})
+	clock := useFakeClock(b)
 	c := webContainer("c1", "web", "80/tcp")
 	docker.put(c)
 	b.Add("c1")
@@ -695,7 +767,171 @@ func TestPendingDeregistration_IncludesDeadContainerServices(t *testing.T) {
 	assert.Equal(t, []string{Hostname + ":web:80"}, b.pendingIDs())
 
 	adapter.setFailDeregister(Hostname+":web:80", false)
-	b.RetryPendingDeregistrations()
+	clock.advance(maxRetryDelay)
+	b.RetryPending()
 	_, deregistered, _ := adapter.snapshot()
 	assert.Equal(t, []string{Hostname + ":web:80"}, deregistered)
+}
+
+func TestPendingRegistration_PartialFailureIsRetried(t *testing.T) {
+	b, docker, adapter := newLifecycleBridge(t, Config{})
+	clock := useFakeClock(b)
+	docker.put(webContainer("c1", "web", "80/tcp", "443/tcp"))
+	adapter.setFailRegister(Hostname+":web:443", true)
+
+	b.Add("c1")
+	assert.Equal(t, []string{Hostname + ":web:80"}, serviceIDs(b.services["c1"]))
+	assert.Equal(t, []string{Hostname + ":web:443"}, b.pendingRegistrationIDs())
+
+	adapter.setFailRegister(Hostname+":web:443", false)
+	clock.advance(initialRetryDelay)
+	b.RetryPending()
+
+	assert.ElementsMatch(t, []string{Hostname + ":web:80", Hostname + ":web:443"}, serviceIDs(b.services["c1"]))
+	assert.Empty(t, b.pendingRegistrationIDs())
+
+	b.Refresh()
+	_, _, refreshed := adapter.snapshot()
+	assert.ElementsMatch(t, []string{Hostname + ":web:80", Hostname + ":web:443"}, refreshed, "a service registered on retry is refreshed like the others")
+}
+
+func TestPendingRegistration_TotalFailureIsRetriedWithoutResync(t *testing.T) {
+	b, docker, adapter := newLifecycleBridge(t, Config{})
+	clock := useFakeClock(b)
+	docker.put(webContainer("c1", "web", "80/tcp"))
+	adapter.setFailRegister(Hostname+":web:80", true)
+
+	b.Add("c1")
+	assert.NotContains(t, b.services, "c1")
+	assert.Equal(t, []string{Hostname + ":web:80"}, b.pendingRegistrationIDs())
+
+	adapter.setFailRegister(Hostname+":web:80", false)
+	clock.advance(initialRetryDelay)
+	b.RetryPending() // the 30-second ticker, with -resync=0
+
+	assert.Equal(t, []string{Hostname + ":web:80"}, serviceIDs(b.services["c1"]))
+	assert.Empty(t, b.pendingRegistrationIDs())
+}
+
+func TestPendingRegistration_NoAttemptLimit(t *testing.T) {
+	b, docker, adapter := newLifecycleBridge(t, Config{})
+	clock := useFakeClock(b)
+	docker.put(webContainer("c1", "web", "80/tcp"))
+	adapter.setFailRegister(Hostname+":web:80", true)
+	b.Add("c1")
+
+	for i := 0; i < 3*maxDeregisterAttempts; i++ {
+		clock.advance(maxRetryDelay)
+		b.RetryPending()
+	}
+	assert.Equal(t, []string{Hostname + ":web:80"}, b.pendingRegistrationIDs(), "a running container keeps retrying")
+
+	adapter.setFailRegister(Hostname+":web:80", false)
+	clock.advance(maxRetryDelay)
+	b.RetryPending()
+	assert.Equal(t, []string{Hostname + ":web:80"}, serviceIDs(b.services["c1"]))
+}
+
+func TestPendingRegistration_DroppedWhenContainerStops(t *testing.T) {
+	b, docker, adapter := newLifecycleBridge(t, Config{DeregisterCheck: "always"})
+	clock := useFakeClock(b)
+	c := webContainer("c1", "web", "80/tcp", "443/tcp")
+	docker.put(c)
+	adapter.setFailRegister(Hostname+":web:443", true)
+	b.Add("c1")
+	require.Equal(t, []string{Hostname + ":web:443"}, b.pendingRegistrationIDs())
+
+	docker.set(func(f *fakeDocker) { c.State = dockerapi.State{ExitCode: 0} })
+	b.RemoveOnExit("c1")
+	assert.Empty(t, b.pendingRegistrationIDs())
+
+	adapter.setFailRegister(Hostname+":web:443", false)
+	clock.advance(maxRetryDelay)
+	b.RetryPending()
+	registered, _, _ := adapter.snapshot()
+	assert.Equal(t, []string{Hostname + ":web:80"}, registered, "a stopped container is not registered by a late retry")
+}
+
+func (a *recordingAdapter) registerCallCount() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.registerCalls
+}
+
+// A resync re-runs add for a container whose services all failed. It must
+// leave the pending registration to the retry queue instead of calling the
+// backend on every tick and restarting the backoff.
+func TestPendingRegistration_ResyncHonorsBackoff(t *testing.T) {
+	b, docker, adapter := newLifecycleBridge(t, Config{})
+	clock := useFakeClock(b)
+	docker.put(webContainer("c1", "web", "80/tcp"))
+	docker.set(func(f *fakeDocker) { f.listed = []string{"c1"} })
+	adapter.setFailRegister(Hostname+":web:80", true)
+
+	b.Add("c1")
+	require.Equal(t, 1, adapter.registerCallCount())
+
+	for i := 0; i < 3; i++ {
+		clock.advance(initialRetryDelay / 4)
+		b.Sync(true)
+	}
+	assert.Equal(t, 1, adapter.registerCallCount(), "resync before the backoff elapses does not call the backend")
+	b.Lock()
+	assert.Equal(t, 1, b.pendingRegistrations[Hostname+":web:80"].attempts, "the backoff is not restarted")
+	b.Unlock()
+
+	adapter.setFailRegister(Hostname+":web:80", false)
+	clock.advance(initialRetryDelay)
+	b.Sync(true)
+	assert.Equal(t, []string{Hostname + ":web:80"}, serviceIDs(b.services["c1"]))
+	assert.Empty(t, b.pendingRegistrationIDs())
+}
+
+// A container whose services all failed to register can stop without its die
+// event being processed (missed event). A later retry must not register it.
+func TestPendingRegistration_VerifiesContainerBeforeRetry(t *testing.T) {
+	tests := []struct {
+		name        string
+		stop        func(f *fakeDocker, c *dockerapi.Container)
+		wantPending bool
+	}{
+		{
+			name: "drops it when the container stopped without a die event",
+			stop: func(f *fakeDocker, c *dockerapi.Container) { c.State = dockerapi.State{ExitCode: 0} },
+		},
+		{
+			name: "drops it when the container was removed",
+			stop: func(f *fakeDocker, c *dockerapi.Container) { delete(f.containers, c.ID) },
+		},
+		{
+			name:        "keeps it when the container cannot be inspected",
+			stop:        func(f *fakeDocker, c *dockerapi.Container) { f.inspectFail[c.ID] = true },
+			wantPending: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b, docker, adapter := newLifecycleBridge(t, Config{})
+			clock := useFakeClock(b)
+			c := webContainer("c1", "web", "80/tcp")
+			docker.put(c)
+			adapter.setFailRegister(Hostname+":web:80", true)
+			b.Add("c1")
+			require.Equal(t, []string{Hostname + ":web:80"}, b.pendingRegistrationIDs())
+
+			docker.set(func(f *fakeDocker) { tt.stop(f, c) })
+			adapter.setFailRegister(Hostname+":web:80", false)
+			calls := adapter.registerCallCount()
+			clock.advance(initialRetryDelay)
+			b.RetryPending()
+
+			assert.Equal(t, calls, adapter.registerCallCount(), "the backend is not called for a container that is not running")
+			assert.NotContains(t, b.services, "c1")
+			if tt.wantPending {
+				assert.Equal(t, []string{Hostname + ":web:80"}, b.pendingRegistrationIDs())
+			} else {
+				assert.Empty(t, b.pendingRegistrationIDs())
+			}
+		})
+	}
 }
